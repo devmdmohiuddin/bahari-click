@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 
 import { getSession, isAdminRole } from "@/server/auth-session";
+import { AdminShell } from "@/components/admin/admin-shell";
 
 // Authoritative admin guard. Middleware does the fast cookie check; here we read
 // the real session and enforce the role (customers are sent to login).
@@ -15,14 +16,14 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   }
 
   return (
-    <div className="flex min-h-screen flex-col">
-      <header className="flex items-center justify-between border-b px-6 py-4">
-        <span className="font-semibold">Bahari Click · Admin</span>
-        <span className="text-muted-foreground text-sm">
-          {session.user.name} · {session.user.role}
-        </span>
-      </header>
-      <main className="flex-1 p-6">{children}</main>
-    </div>
+    <AdminShell
+      user={{
+        name: session.user.name ?? "",
+        email: session.user.email,
+        role: session.user.role ?? "STAFF",
+      }}
+    >
+      {children}
+    </AdminShell>
   );
 }

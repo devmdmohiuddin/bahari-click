@@ -2,8 +2,12 @@
 
 import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { AlertCircle, Loader2 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Brand } from "@/components/admin/brand";
 import { authClient } from "@/lib/auth-client";
 
 function LoginForm() {
@@ -33,41 +37,67 @@ function LoginForm() {
   }
 
   return (
-    <form onSubmit={onSubmit} className="w-full max-w-sm space-y-4">
-      <div className="space-y-1 text-center">
-        <h1 className="text-2xl font-bold">Admin sign in</h1>
-        <p className="text-muted-foreground text-sm">Bahari Click staff only.</p>
+    <div className="w-full max-w-sm space-y-6">
+      <div className="flex flex-col items-center gap-4 text-center">
+        <Brand href="#" className="pointer-events-none" />
+        <div className="space-y-1">
+          <h1 className="text-xl font-semibold tracking-tight">Sign in to your dashboard</h1>
+          <p className="text-muted-foreground text-sm">Bahari Click staff access only.</p>
+        </div>
       </div>
 
-      <input
-        type="email"
-        required
-        placeholder="Email"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-        className="border-input w-full rounded-md border px-3 py-2 text-sm"
-      />
-      <input
-        type="password"
-        required
-        placeholder="Password"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-        className="border-input w-full rounded-md border px-3 py-2 text-sm"
-      />
+      <div className="bg-card rounded-xl border p-6 shadow-sm">
+        <form onSubmit={onSubmit} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="email">Email</Label>
+            <Input
+              id="email"
+              type="email"
+              required
+              autoComplete="email"
+              placeholder="you@bahariclick.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+            />
+          </div>
 
-      {error && <p className="text-destructive text-sm">{error}</p>}
+          <div className="space-y-2">
+            <Label htmlFor="password">Password</Label>
+            <Input
+              id="password"
+              type="password"
+              required
+              autoComplete="current-password"
+              placeholder="••••••••"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+          </div>
 
-      <Button type="submit" className="w-full" disabled={loading}>
-        {loading ? "Signing in…" : "Sign in"}
-      </Button>
-    </form>
+          {error && (
+            <div className="bg-destructive/10 text-destructive flex items-start gap-2 rounded-lg px-3 py-2 text-sm">
+              <AlertCircle className="mt-0.5 size-4 shrink-0" />
+              <span>{error}</span>
+            </div>
+          )}
+
+          <Button type="submit" size="lg" className="w-full" disabled={loading}>
+            {loading && <Loader2 className="animate-spin" />}
+            {loading ? "Signing in…" : "Sign in"}
+          </Button>
+        </form>
+      </div>
+
+      <p className="text-muted-foreground text-center text-xs">
+        Protected area · Cash-on-delivery commerce for Bangladesh
+      </p>
+    </div>
   );
 }
 
 export default function AdminLoginPage() {
   return (
-    <main className="flex min-h-screen items-center justify-center px-4">
+    <main className="bg-muted/30 flex min-h-screen items-center justify-center px-4 py-12">
       <Suspense>
         <LoginForm />
       </Suspense>
