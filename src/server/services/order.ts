@@ -40,8 +40,9 @@ async function generateOrderNumber(): Promise<string> {
 
 export interface PlaceOrderOptions {
   customerId?: string | null;
-  /** Optional fraud verdict attached by the checkout flow (F4.4). */
-  fraud?: { score: number; verdict: string } | null;
+  /** Optional fraud verdict attached by the checkout flow (F4.4). Score may be
+   *  null when the courier API is unavailable (fail-open). */
+  fraud?: { score: number | null; verdict: string } | null;
 }
 
 export async function placeOrder(input: PlaceOrderInput, options: PlaceOrderOptions = {}) {
