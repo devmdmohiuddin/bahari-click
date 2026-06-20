@@ -30,6 +30,7 @@ import {
 } from "@/components/ui/table";
 import { toast } from "@/components/ui/toast";
 import { PageHeader } from "@/components/admin/page-header";
+import { ImageGallery, imageUid, type ImageItem } from "@/components/admin/products/image-gallery";
 import {
   createProductAction,
   setProductPublishedAction,
@@ -47,6 +48,7 @@ type VariantRow = {
   price: string;
   stock: string;
   isActive: boolean;
+  images: ImageItem[];
 };
 
 type SpecRow = { uid: string; key: string; value: string };
@@ -55,7 +57,20 @@ let counter = 0;
 const uid = () => `r${Date.now()}_${counter++}`;
 
 function emptyVariant(): VariantRow {
-  return { uid: uid(), color: "", size: "", sku: "", price: "", stock: "0", isActive: true };
+  return {
+    uid: uid(),
+    color: "",
+    size: "",
+    sku: "",
+    price: "",
+    stock: "0",
+    isActive: true,
+    images: [],
+  };
+}
+
+function toImageItems(images: { url: string; alt: string | null }[]): ImageItem[] {
+  return images.map((i) => ({ uid: imageUid(), url: i.url, alt: i.alt ?? "" }));
 }
 
 function initVariants(product?: AdminProductDetail | null): VariantRow[] {
@@ -68,6 +83,7 @@ function initVariants(product?: AdminProductDetail | null): VariantRow[] {
     price: v.price?.toString() ?? "",
     stock: v.stock.toString(),
     isActive: v.isActive,
+    images: toImageItems(v.images),
   }));
 }
 
@@ -109,6 +125,9 @@ export function ProductForm({
 
   const [variants, setVariants] = useState<VariantRow[]>(() => initVariants(product));
   const [specs, setSpecs] = useState<SpecRow[]>(() => initSpecs(product));
+  const [productImages, setProductImages] = useState<ImageItem[]>(() =>
+    toImageItems(product?.images ?? []),
+  );
 
   const [genColors, setGenColors] = useState("");
   const [genSizes, setGenSizes] = useState("");
@@ -173,6 +192,13 @@ export function ProductForm({
       price: v.price.trim() === "" ? null : Number(v.price),
       stock: v.stock.trim() === "" ? 0 : Number(v.stock),
       isActive: v.isActive,
+      images: v.images.map((img, i) => ({ url: img.url, alt: img.alt || null, sortOrder: i })),
+    }));
+
+    const imagePayload = productImages.map((img, i) => ({
+      url: img.url,
+      alt: img.alt || null,
+      sortOrder: i,
     }));
 
     const specPayload = specs
@@ -189,6 +215,7 @@ export function ProductForm({
       isFeatured,
       soldCountBoost: soldBoost.trim() === "" ? 0 : Number(soldBoost),
       variants: variantPayload,
+      images: imagePayload,
       specs: specPayload,
     };
 
@@ -307,6 +334,19 @@ export function ProductForm({
                   className="min-h-32"
                 />
               </div>
+            </CardContent>
+          </Card>
+
+          {/* Media */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Media</CardTitle>
+              <CardDescription>
+                Shared product gallery. The first image is the cover. Drag to reorder.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <ImageGallery value={productImages} onChange={setProductImages} />
             </CardContent>
           </Card>
 
@@ -437,6 +477,26 @@ export function ProductForm({
                 <Plus />
                 Add variant
               </Button>
+
+              {/* Per-variant images — the first one drives the storefront variant switch. */}
+              <div className="space-y-4 border-t pt-4">
+                <p className="text-sm font-medium">Variant images</p>
+                <p className="text-muted-foreground -mt-3 text-xs">
+                  Linked to a specific variant; shown when a shopper selects it.
+                </p>
+                {variants.map((v) => (
+                  <div key={v.uid} className="bg-muted/30 rounded-lg border p-3">
+                    <p className="mb-2 text-sm font-medium">
+                      {[v.color, v.size].filter(Boolean).join(" · ") || "Default variant"}
+                    </p>
+                    <ImageGallery
+                      compact
+                      value={v.images}
+                      onChange={(next) => setVariant(v.uid, { images: next })}
+                    />
+                  </div>
+                ))}
+              </div>
             </CardContent>
           </Card>
 
