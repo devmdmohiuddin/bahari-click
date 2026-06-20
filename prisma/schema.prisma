@@ -44,11 +44,13 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  sessions         Session[]
-  accounts         Account[]
-  auditLogs        AuditLog[]
-  reviews          Review[]
-  stockAdjustments StockAdjustment[]
+  sessions           Session[]
+  accounts           Account[]
+  auditLogs          AuditLog[]
+  reviews            Review[]
+  stockAdjustments   StockAdjustment[]
+  orders             Order[]
+  orderStatusChanges OrderStatusHistory[]
 
   @@index([role])
   @@map("user")
@@ -223,6 +225,7 @@ model Variant {
   images      VariantImage[]
   adjustments StockAdjustment[]
   preOrders   PreOrderRequest[]
+  orderItems  OrderItem[]
 
   @@unique([productId, color, size])
   @@index([productId])
@@ -399,6 +402,8 @@ model ShippingZone {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  orders Order[]
+
   @@index([isActive, sortOrder])
   @@map("shipping_zone")
 }
@@ -428,6 +433,110 @@ model Coupon {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  orders Order[]
+
   @@index([isActive])
   @@map("coupon")
+}
+
+// ─── Orders ──────────────────────────────────────────────────────────────────
+// COD-only at launch. Money/stock are recomputed server-side at placement; unit
+// prices and the delivery address are snapshotted so later edits don't rewrite
+// history. See docs/03-architecture.md (Checkout flow) and docs/04-data-model.md.
+
+enum OrderStatus {
+  pending
+  confirmed
+  packed
+  dispatched
+  delivered
+  returned
+  cancelled
+}
+
+enum PaymentMethod {
+  COD
+}
+
+model Order {
+  id          String @id @default(cuid())
+  orderNumber String @unique // e.g. BC-26171-0042
+
+  customerId String?
+  customer   User?   @relation(fields: [customerId], references: [id], onDelete: SetNull)
+
+  // Address snapshot (independent of any mutable Address row).
+  custName    String
+  custPhone   String
+  custAddress String
+  custArea    String?
+  custCity    String?
+
+  zoneId      String
+  zone        ShippingZone @relation(fields: [zoneId], references: [id], onDelete: Restrict)
+  shippingFee Int
+
+  subtotal Int
+  discount Int @default(0)
+  total    Int
+
+  couponId String?
+  coupon   Coupon? @relation(fields: [couponId], references: [id], onDelete: SetNull)
+
+  paymentMethod PaymentMethod @default(COD)
+  status        OrderStatus   @default(pending)
+
+  fraudScore   Int?
+  fraudVerdict String?
+
+  courierName  String?
+  trackingCode String?
+  internalNote String?
+  metaEventId  String? // FB CAPI dedup
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  items         OrderItem[]
+  statusHistory OrderStatusHistory[]
+
+  @@index([status])
+  @@index([custPhone])
+  @@index([createdAt])
+  @@map("order")
+}
+
+model OrderItem {
+  id      String @id @default(cuid())
+  orderId String
+  order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  variantId String?
+  variant   Variant? @relation(fields: [variantId], references: [id], onDelete: SetNull)
+
+  // Snapshots for history (survive product/variant edits or deletes).
+  productTitle String
+  variantLabel String
+  unitPrice    Int
+  qty          Int
+  lineTotal    Int
+
+  @@index([orderId])
+  @@map("order_item")
+}
+
+model OrderStatusHistory {
+  id      String      @id @default(cuid())
+  orderId String
+  order   Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  status  OrderStatus
+  note    String?
+
+  changedByAdminId String?
+  changedByAdmin   User?   @relation(fields: [changedByAdminId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  @@index([orderId, createdAt])
+  @@map("order_status_history")
 }
