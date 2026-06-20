@@ -5,7 +5,12 @@ import { ok, toResult, type Result } from "@/lib/result";
 import { getSession, requireAdmin } from "@/server/auth-session";
 import { recordAudit } from "@/server/services/audit";
 import { clientIp, enforcePolicy } from "@/server/services/rate-limit";
-import { createReview, deleteReview, setReviewApproved } from "@/server/services/review";
+import {
+  approveReviews,
+  createReview,
+  deleteReview,
+  setReviewApproved,
+} from "@/server/services/review";
 import { createReviewSchema, type CreateReviewInput } from "@/server/validators/review";
 
 // Public: submit a review. Rate-limited per IP; always created pending moderation.
@@ -39,6 +44,23 @@ export async function setReviewApprovedAction(
       action: isApproved ? "review.approve" : "review.unapprove",
       entity: "Review",
       entityId: reviewId,
+    });
+    return ok(result);
+  } catch (error) {
+    return toResult(error);
+  }
+}
+
+// Admin: bulk-approve reviews from the moderation queue.
+export async function bulkApproveReviewsAction(ids: string[]): Promise<Result<{ count: number }>> {
+  try {
+    const session = await requireAdmin();
+    const result = await approveReviews(ids);
+    await recordAudit({
+      adminId: session.user.id,
+      action: "review.bulk_approve",
+      entity: "Review",
+      diff: { ids, count: result.count },
     });
     return ok(result);
   } catch (error) {

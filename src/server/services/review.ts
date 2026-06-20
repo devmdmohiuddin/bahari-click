@@ -143,6 +143,39 @@ export async function listPendingReviews() {
   return db.review.findMany({
     where: { isApproved: false },
     orderBy: { createdAt: "asc" },
-    include: { product: { select: { title: true, slug: true } } },
+    include: {
+      product: { select: { id: true, title: true, slug: true } },
+      customer: { select: { name: true } },
+    },
   });
+}
+
+export type PendingReview = Awaited<ReturnType<typeof listPendingReviews>>[number];
+
+/** Approve many reviews at once, recomputing each affected product's aggregates. */
+export async function approveReviews(ids: string[]) {
+  if (ids.length === 0) return { count: 0 };
+
+  const reviews = await db.review.findMany({
+    where: { id: { in: ids }, isApproved: false },
+    select: { id: true, productId: true, product: { select: { slug: true } } },
+  });
+  if (reviews.length === 0) return { count: 0 };
+
+  await db.review.updateMany({
+    where: { id: { in: reviews.map((r) => r.id) } },
+    data: { isApproved: true },
+  });
+
+  const productIds = [...new Set(reviews.map((r) => r.productId))];
+  for (const pid of productIds) await recomputeAggregates(pid);
+
+  const tags = new Set<string>([cacheTags.products]);
+  for (const r of reviews) {
+    tags.add(cacheTags.product(r.productId));
+    tags.add(cacheTags.productSlug(r.product.slug));
+  }
+  revalidateTags(...tags);
+
+  return { count: reviews.length };
 }
