@@ -1,0 +1,63 @@
+"use server";
+
+import { ok, toResult, type Result } from "@/lib/result";
+import { getSession, requireAdmin } from "@/server/auth-session";
+import { recordAudit } from "@/server/services/audit";
+import { clientIp, enforceRateLimit } from "@/server/services/rate-limit";
+import { createReview, deleteReview, setReviewApproved } from "@/server/services/review";
+import { createReviewSchema, type CreateReviewInput } from "@/server/validators/review";
+
+// Public: submit a review. Rate-limited per IP; always created pending moderation.
+export async function submitReviewAction(
+  input: CreateReviewInput,
+): Promise<Result<{ id: string; pending: true }>> {
+  try {
+    const data = createReviewSchema.parse(input);
+
+    await enforceRateLimit(`review:create:${await clientIp()}`, 5, 60 * 60);
+
+    const session = await getSession();
+    const review = await createReview({ ...data, customerId: session?.user.id ?? null });
+
+    return ok({ id: review.id, pending: true });
+  } catch (error) {
+    return toResult(error);
+  }
+}
+
+// Admin: approve/unapprove a review (recomputes product rating aggregates).
+export async function setReviewApprovedAction(
+  reviewId: string,
+  isApproved: boolean,
+): Promise<Result<{ id: string; isApproved: boolean }>> {
+  try {
+    const session = await requireAdmin();
+    const result = await setReviewApproved(reviewId, isApproved);
+    await recordAudit({
+      adminId: session.user.id,
+      action: isApproved ? "review.approve" : "review.unapprove",
+      entity: "Review",
+      entityId: reviewId,
+    });
+    return ok(result);
+  } catch (error) {
+    return toResult(error);
+  }
+}
+
+// Admin: delete a review (recomputes product rating aggregates).
+export async function deleteReviewAction(reviewId: string): Promise<Result<{ id: string }>> {
+  try {
+    const session = await requireAdmin();
+    const result = await deleteReview(reviewId);
+    await recordAudit({
+      adminId: session.user.id,
+      action: "review.delete",
+      entity: "Review",
+      entityId: reviewId,
+    });
+    return ok(result);
+  } catch (error) {
+    return toResult(error);
+  }
+}

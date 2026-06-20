@@ -32,6 +32,43 @@ export interface ListingResult {
   totalPages: number;
 }
 
+// Shared select + mapper so listings and "related products" produce identical
+// product cards.
+export const productCardSelect = {
+  id: true,
+  title: true,
+  slug: true,
+  basePrice: true,
+  compareAtPrice: true,
+  soldCountReal: true,
+  soldCountBoost: true,
+  ratingAvg: true,
+  ratingCount: true,
+  isFeatured: true,
+  images: { take: 1, orderBy: { sortOrder: "asc" }, select: { url: true, alt: true } },
+  variants: { where: { isActive: true }, select: { price: true, stock: true } },
+} satisfies Prisma.ProductSelect;
+
+type ProductCardRow = Prisma.ProductGetPayload<{ select: typeof productCardSelect }>;
+
+export function toProductCard(p: ProductCardRow): ProductCard {
+  const prices = p.variants.map((v) => v.price ?? p.basePrice);
+  return {
+    id: p.id,
+    title: p.title,
+    slug: p.slug,
+    priceFrom: prices.length ? Math.min(...prices) : p.basePrice,
+    basePrice: p.basePrice,
+    compareAtPrice: p.compareAtPrice,
+    soldCountDisplay: p.soldCountReal + p.soldCountBoost,
+    ratingAvg: p.ratingAvg,
+    ratingCount: p.ratingCount,
+    isFeatured: p.isFeatured,
+    inStock: p.variants.some((v) => v.stock > 0),
+    image: p.images[0] ?? null,
+  };
+}
+
 function orderByFor(sort: ProductSort): Prisma.ProductOrderByWithRelationInput[] {
   switch (sort) {
     case "price_asc":
@@ -67,41 +104,11 @@ export async function listProducts(query: ListingQuery): Promise<ListingResult> 
       orderBy: orderByFor(sort),
       skip: (page - 1) * pageSize,
       take: pageSize,
-      select: {
-        id: true,
-        title: true,
-        slug: true,
-        basePrice: true,
-        compareAtPrice: true,
-        soldCountReal: true,
-        soldCountBoost: true,
-        ratingAvg: true,
-        ratingCount: true,
-        isFeatured: true,
-        images: { take: 1, orderBy: { sortOrder: "asc" }, select: { url: true, alt: true } },
-        variants: { where: { isActive: true }, select: { price: true, stock: true } },
-      },
+      select: productCardSelect,
     }),
   ]);
 
-  const items: ProductCard[] = rows.map((p) => {
-    const prices = p.variants.map((v) => v.price ?? p.basePrice);
-    const priceFrom = prices.length ? Math.min(...prices) : p.basePrice;
-    return {
-      id: p.id,
-      title: p.title,
-      slug: p.slug,
-      priceFrom,
-      basePrice: p.basePrice,
-      compareAtPrice: p.compareAtPrice,
-      soldCountDisplay: p.soldCountReal + p.soldCountBoost,
-      ratingAvg: p.ratingAvg,
-      ratingCount: p.ratingCount,
-      isFeatured: p.isFeatured,
-      inStock: p.variants.some((v) => v.stock > 0),
-      image: p.images[0] ?? null,
-    };
-  });
+  const items = rows.map(toProductCard);
 
   return { items, total, page, pageSize, totalPages: Math.max(1, Math.ceil(total / pageSize)) };
 }

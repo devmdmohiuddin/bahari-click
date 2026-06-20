@@ -8,6 +8,7 @@ import {
   getProductBySlug,
   setProductPublished,
 } from "../src/server/services/product";
+import { createReview, setReviewApproved } from "../src/server/services/review";
 
 // Seed scaffold. Idempotent. Provisions the first OWNER admin so /admin is
 // reachable in dev, plus a small demo catalog so the storefront has something
@@ -87,10 +88,38 @@ async function seedCatalog() {
   console.info(`✔ Created demo product: ${product.title} (${product.variants.length} variants)`);
 }
 
+async function seedReviews() {
+  const product = await db.product.findUnique({
+    where: { slug: DEMO_PRODUCT_SLUG },
+    select: { id: true, _count: { select: { reviews: true } } },
+  });
+  if (!product || product._count.reviews > 0) {
+    console.info("✔ Demo reviews already present");
+    return;
+  }
+
+  // Two reviews: one approved (counts toward aggregates), one left pending.
+  const approved = await createReview({
+    productId: product.id,
+    guestName: "Rahim",
+    rating: 5,
+    comment: "Great quality, fast delivery!",
+  });
+  await setReviewApproved(approved.id, true);
+  await createReview({
+    productId: product.id,
+    guestName: "Karim",
+    rating: 3,
+    comment: "Decent but smaller than expected.",
+  });
+  console.info("✔ Created demo reviews (1 approved, 1 pending)");
+}
+
 async function main() {
   console.info("🌱 Seeding…");
   await seedOwner();
   await seedCatalog();
+  await seedReviews();
 
   // Read-back verification (Phase 1 acceptance).
   const readBack = await getProductBySlug(DEMO_PRODUCT_SLUG);
@@ -100,6 +129,10 @@ async function main() {
       `🔎 Read back "${readBack.title}": ${readBack.variants.length} variants, ` +
         `${readBack.images.length} gallery images, ${variantImages} variant images, ` +
         `${readBack.specs.length} specs, soldDisplay=${readBack.soldCountDisplay}`,
+    );
+    console.info(
+      `🔎 Aggregates: ratingAvg=${readBack.ratingAvg} ratingCount=${readBack.ratingCount} ` +
+        `(only the approved review counts)`,
     );
   }
 
