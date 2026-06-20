@@ -42,7 +42,11 @@ export default function RootLayout({
       lang="en"
       className={`${inter.variable} ${jakarta.variable} ${hindSiliguri.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="flex min-h-full flex-col">{children}</body>
+      {/* suppressHydrationWarning: some browser extensions inject attributes on
+          <body> (e.g. cz-shortcut-listen) before React hydrates. */}
+      <body className="flex min-h-full flex-col" suppressHydrationWarning>
+        {children}
+      </body>
     </html>
   );
 }
