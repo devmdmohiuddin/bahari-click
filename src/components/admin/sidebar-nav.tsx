@@ -59,9 +59,7 @@ export function SidebarNav({ role, onNavigate }: { role: AdminRole; onNavigate?:
                 <Icon
                   className={cn(
                     "size-4 shrink-0 transition-colors",
-                    active
-                      ? "text-foreground"
-                      : "text-muted-foreground group-hover:text-foreground",
+                    active ? "text-brand" : "text-muted-foreground group-hover:text-foreground",
                   )}
                 />
                 <span className="flex-1">{item.label}</span>
