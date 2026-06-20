@@ -4,6 +4,7 @@ import { cacheTags, revalidateTags } from "@/lib/cache";
 import { conflict, notFound, validationError } from "@/lib/errors";
 import { normalizeBdPhone } from "@/lib/phone";
 import { incrementCouponUsage, validateCoupon } from "@/server/services/coupon";
+import { sendOrderStatusSms } from "@/server/services/notifications";
 import { resolveShippingFee } from "@/server/services/shipping";
 import { placeOrderSchema, type PlaceOrderInput } from "@/server/validators/order";
 
@@ -261,7 +262,22 @@ export async function transitionOrderStatus(
   });
 
   revalidateTags(cacheTags.products);
-  return getOrderById(orderId);
+
+  const updated = await getOrderById(orderId);
+
+  // Lifecycle SMS (fail-soft — never blocks the transition).
+  await sendOrderStatusSms(
+    {
+      orderNumber: updated.orderNumber,
+      name: updated.custName,
+      total: updated.total,
+      trackingCode: updated.trackingCode,
+      custPhone: updated.custPhone,
+    },
+    newStatus,
+  );
+
+  return updated;
 }
 
 // ── Public tracking ──────────────────────────────────────────────────────────

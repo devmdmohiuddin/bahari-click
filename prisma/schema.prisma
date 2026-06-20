@@ -298,6 +298,22 @@ model Review {
 // Postgres-backed fixed-window limiter (no Upstash needed in dev/launch — see
 // docs/06-cost-and-free-tiers.md). One row per key; window resets on expiry.
 
+model SmsLog {
+  id                String  @id @default(cuid())
+  to                String
+  template          String
+  text              String
+  provider          String
+  ok                Boolean
+  providerMessageId String?
+  error             String?
+
+  createdAt DateTime @default(now())
+
+  @@index([to, createdAt])
+  @@map("sms_log")
+}
+
 model RateLimit {
   key     String   @id // e.g. "review:create:<ip>"
   count   Int      @default(0)

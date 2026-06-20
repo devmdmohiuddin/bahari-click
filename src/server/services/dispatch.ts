@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { cacheTags, revalidateTags } from "@/lib/cache";
 import { conflict, notFound } from "@/lib/errors";
 import { courier } from "@/server/integrations/courier";
+import { sendOrderStatusSms } from "@/server/services/notifications";
 
 // Dispatch an order to the courier: create a consignment, store the tracking
 // code, and move the order to `dispatched`. Idempotent — if the order already
@@ -81,6 +82,19 @@ export async function dispatchOrder(
   ]);
 
   revalidateTags(cacheTags.products);
+
+  // Dispatch SMS with the tracking code (fail-soft).
+  await sendOrderStatusSms(
+    {
+      orderNumber: order.orderNumber,
+      name: order.custName,
+      total: order.total,
+      trackingCode: consignment.trackingCode,
+      custPhone: order.custPhone,
+    },
+    OrderStatus.dispatched,
+  );
+
   return {
     orderId: order.id,
     courierName: courier.name,
