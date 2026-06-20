@@ -9,7 +9,12 @@ import {
   updateCategory,
   updateSubcategory,
 } from "@/server/services/category";
-import { createProduct, setProductPublished, updateProduct } from "@/server/services/product";
+import {
+  createProduct,
+  duplicateProduct,
+  setProductPublished,
+  updateProduct,
+} from "@/server/services/product";
 import type {
   CategoryInput,
   ProductCreateInput,
@@ -126,6 +131,25 @@ export async function updateProductAction(
       entity: "Product",
       entityId: product.id,
       diff: { id: input.id },
+    });
+    return ok({ id: product.id, slug: product.slug });
+  } catch (error) {
+    return toResult(error);
+  }
+}
+
+export async function duplicateProductAction(
+  id: string,
+): Promise<Result<{ id: string; slug: string }>> {
+  try {
+    const session = await requireAdmin();
+    const product = await duplicateProduct(id);
+    await recordAudit({
+      adminId: session.user.id,
+      action: "product.duplicate",
+      entity: "Product",
+      entityId: product.id,
+      diff: { sourceId: id, slug: product.slug },
     });
     return ok({ id: product.id, slug: product.slug });
   } catch (error) {

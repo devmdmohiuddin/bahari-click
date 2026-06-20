@@ -196,6 +196,33 @@ export async function updateProduct(input: ProductUpdateInput) {
   return product;
 }
 
+/** Clone a product as an unpublished draft. SKUs regenerate; titles get "(Copy)". */
+export async function duplicateProduct(id: string) {
+  const p = await db.product.findUnique({ where: { id }, include: fullInclude });
+  if (!p) throw notFound("Product not found");
+
+  return createProduct({
+    title: `${p.title} (Copy)`,
+    subcategoryId: p.subcategoryId,
+    description: p.description,
+    basePrice: p.basePrice,
+    compareAtPrice: p.compareAtPrice,
+    isFeatured: false,
+    soldCountBoost: p.soldCountBoost,
+    // Drop SKUs so they regenerate uniquely from the new slug.
+    variants: p.variants.map((v) => ({
+      color: v.color,
+      size: v.size,
+      price: v.price,
+      stock: v.stock,
+      isActive: v.isActive,
+      images: v.images.map((im) => ({ url: im.url, alt: im.alt, sortOrder: im.sortOrder })),
+    })),
+    images: p.images.map((im) => ({ url: im.url, alt: im.alt, sortOrder: im.sortOrder })),
+    specs: p.specs.map((s) => ({ key: s.key, value: s.value, sortOrder: s.sortOrder })),
+  });
+}
+
 /** Publish/unpublish. Publishing requires at least one active, in-stock-capable variant. */
 export async function setProductPublished(id: string, isPublished: boolean) {
   const product = await db.product.findUnique({
