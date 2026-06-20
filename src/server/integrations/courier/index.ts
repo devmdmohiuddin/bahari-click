@@ -1,4 +1,5 @@
 import { mockCourierAdapter } from "./mock";
+import { steadfastAdapter } from "./steadfast";
 import type { CourierAdapter } from "./types";
 
 export type {
@@ -10,14 +11,16 @@ export type {
   FraudVerdict,
 } from "./types";
 
-// Provider selection. Dev defaults to the free mock; Steadfast plugs in here
-// in Phase 5 once STEADFAST_* credentials are set.
+// Provider selection. Dev defaults to the free mock; set COURIER_PROVIDER=steadfast
+// (+ STEADFAST_* credentials) to go live.
 function resolveCourierAdapter(): CourierAdapter {
   const provider = process.env.COURIER_PROVIDER ?? "mock";
 
   switch (provider) {
     case "mock":
       return mockCourierAdapter;
+    case "steadfast":
+      return steadfastAdapter;
     default:
       console.warn(`[courier] unknown COURIER_PROVIDER "${provider}", falling back to mock`);
       return mockCourierAdapter;
