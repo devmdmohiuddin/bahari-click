@@ -402,3 +402,32 @@ model ShippingZone {
   @@index([isActive, sortOrder])
   @@map("shipping_zone")
 }
+
+// ─── Coupons ─────────────────────────────────────────────────────────────────
+// Percent or fixed-amount discount with optional window, min-order, usage limit,
+// and max-discount cap. usedCount is incremented under a guard at order time.
+
+enum CouponType {
+  percent
+  fixed
+}
+
+model Coupon {
+  id          String     @id @default(cuid())
+  code        String     @unique // stored uppercase
+  type        CouponType
+  value       Int // percent 0..100, or fixed whole BDT
+  minOrder    Int? // minimum subtotal to qualify
+  maxDiscount Int? // cap for percent coupons
+  usageLimit  Int? // null = unlimited
+  usedCount   Int        @default(0)
+  startsAt    DateTime?
+  endsAt      DateTime?
+  isActive    Boolean    @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isActive])
+  @@map("coupon")
+}
