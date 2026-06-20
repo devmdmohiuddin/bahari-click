@@ -2,6 +2,7 @@ import { OrderStatus } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
 import { cacheTags, revalidateTags } from "@/lib/cache";
 import { conflict, notFound, validationError } from "@/lib/errors";
+import { normalizeBdPhone } from "@/lib/phone";
 import { incrementCouponUsage, validateCoupon } from "@/server/services/coupon";
 import { resolveShippingFee } from "@/server/services/shipping";
 import { placeOrderSchema, type PlaceOrderInput } from "@/server/validators/order";
@@ -165,6 +166,131 @@ export async function getOrderByNumber(orderNumber: string) {
 export async function getOrderById(id: string) {
   const order = await db.order.findUnique({ where: { id }, include: orderInclude });
   if (!order) throw notFound("Order not found");
+  return order;
+}
+
+// ── Status transitions ───────────────────────────────────────────────────────
+
+// Allowed forward transitions. returned/cancelled are terminal.
+const ORDER_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
+  pending: [OrderStatus.confirmed, OrderStatus.cancelled],
+  confirmed: [OrderStatus.packed, OrderStatus.cancelled],
+  packed: [OrderStatus.dispatched, OrderStatus.cancelled],
+  dispatched: [OrderStatus.delivered, OrderStatus.returned],
+  delivered: [OrderStatus.returned],
+  returned: [],
+  cancelled: [],
+};
+
+export interface TransitionOptions {
+  note?: string;
+  adminId?: string | null;
+}
+
+/**
+ * Move an order to a new status: validates the transition, writes history, and
+ * fires side-effects — increment soldCountReal on delivery; restock on
+ * cancel/return. (SMS notifications are added in Phase 5.)
+ */
+export async function transitionOrderStatus(
+  orderId: string,
+  newStatus: OrderStatus,
+  options: TransitionOptions = {},
+) {
+  const order = await db.order.findUnique({
+    where: { id: orderId },
+    select: {
+      id: true,
+      status: true,
+      orderNumber: true,
+      items: { select: { qty: true, variant: { select: { id: true, productId: true } } } },
+    },
+  });
+  if (!order) throw notFound("Order not found");
+  if (order.status === newStatus) return order;
+
+  if (!ORDER_TRANSITIONS[order.status].includes(newStatus)) {
+    throw conflict(`Cannot move order from ${order.status} to ${newStatus}`);
+  }
+
+  await db.$transaction(async (tx) => {
+    await tx.order.update({ where: { id: orderId }, data: { status: newStatus } });
+    await tx.orderStatusHistory.create({
+      data: {
+        orderId,
+        status: newStatus,
+        note: options.note ?? null,
+        changedByAdminId: options.adminId ?? null,
+      },
+    });
+
+    if (newStatus === OrderStatus.delivered) {
+      // Count real sales per product.
+      const perProduct = new Map<string, number>();
+      for (const item of order.items) {
+        const pid = item.variant?.productId;
+        if (pid) perProduct.set(pid, (perProduct.get(pid) ?? 0) + item.qty);
+      }
+      for (const [productId, qty] of perProduct) {
+        await tx.product.update({
+          where: { id: productId },
+          data: { soldCountReal: { increment: qty } },
+        });
+      }
+    }
+
+    if (newStatus === OrderStatus.cancelled || newStatus === OrderStatus.returned) {
+      // Return reserved stock to inventory.
+      for (const item of order.items) {
+        if (!item.variant) continue;
+        const updated = await tx.variant.update({
+          where: { id: item.variant.id },
+          data: { stock: { increment: item.qty } },
+          select: { stock: true },
+        });
+        await tx.stockAdjustment.create({
+          data: {
+            variantId: item.variant.id,
+            delta: item.qty,
+            newStock: updated.stock,
+            reason: `${newStatus}:${order.orderNumber}`,
+          },
+        });
+      }
+    }
+  });
+
+  revalidateTags(cacheTags.products);
+  return getOrderById(orderId);
+}
+
+// ── Public tracking ──────────────────────────────────────────────────────────
+
+/** Guest order tracking by order number + phone (rate-limited at the action). */
+export async function trackOrder(orderNumber: string, phone: string) {
+  const normalized = normalizeBdPhone(phone);
+  if (!normalized) throw validationError("Enter a valid Bangladeshi phone number");
+
+  const order = await db.order.findFirst({
+    where: { orderNumber, custPhone: normalized },
+    select: {
+      orderNumber: true,
+      status: true,
+      total: true,
+      createdAt: true,
+      custName: true,
+      trackingCode: true,
+      courierName: true,
+      items: { select: { productTitle: true, variantLabel: true, qty: true, lineTotal: true } },
+      statusHistory: {
+        orderBy: { createdAt: "asc" },
+        select: { status: true, note: true, createdAt: true },
+      },
+    },
+  });
+  if (!order) {
+    throw notFound("Order not found. Please check your order number and phone number.");
+  }
   return order;
 }
 

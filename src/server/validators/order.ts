@@ -23,3 +23,9 @@ export const placeOrderSchema = z.object({
   couponCode: z.string().trim().optional(),
 });
 export type PlaceOrderInput = z.input<typeof placeOrderSchema>;
+
+export const trackOrderSchema = z.object({
+  orderNumber: z.string().trim().min(1, "Order number is required"),
+  phone: z.string().trim().min(1, "Phone number is required"),
+});
+export type TrackOrderInput = z.input<typeof trackOrderSchema>;
