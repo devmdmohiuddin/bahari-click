@@ -220,6 +220,37 @@ export async function getProductById(id: string) {
   return product ? withDisplaySold(product) : null;
 }
 
+export type AdminProductDetail = NonNullable<Awaited<ReturnType<typeof getProductById>>>;
+
+/** Admin product list — all products (incl. unpublished) with rollups for the table. */
+export async function listProductsAdmin() {
+  const rows = await db.product.findMany({
+    orderBy: { createdAt: "desc" },
+    include: {
+      subcategory: { include: { category: true } },
+      variants: { select: { stock: true } },
+      images: { orderBy: { sortOrder: "asc" }, take: 1, select: { url: true } },
+    },
+  });
+
+  return rows.map((p) => ({
+    id: p.id,
+    title: p.title,
+    slug: p.slug,
+    basePrice: p.basePrice,
+    isPublished: p.isPublished,
+    isFeatured: p.isFeatured,
+    categoryName: p.subcategory.category.name,
+    subcategoryName: p.subcategory.name,
+    variantCount: p.variants.length,
+    totalStock: p.variants.reduce((sum, v) => sum + v.stock, 0),
+    thumbnail: p.images[0]?.url ?? null,
+    createdAt: p.createdAt,
+  }));
+}
+
+export type AdminProductRow = Awaited<ReturnType<typeof listProductsAdmin>>[number];
+
 export async function getProductBySlug(slug: string) {
   const product = await db.product.findUnique({ where: { slug }, include: fullInclude });
   return product ? withDisplaySold(product) : null;

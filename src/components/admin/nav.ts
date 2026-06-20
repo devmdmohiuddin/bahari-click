@@ -43,7 +43,7 @@ export const NAV_GROUPS: NavGroup[] = [
   {
     label: "Catalog",
     items: [
-      { label: "Products", href: "/admin/products", icon: Package, comingSoon: true },
+      { label: "Products", href: "/admin/products", icon: Package },
       { label: "Categories", href: "/admin/categories", icon: FolderTree },
       { label: "Reviews", href: "/admin/reviews", icon: Star, comingSoon: true },
     ],
