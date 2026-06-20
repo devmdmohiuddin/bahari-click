@@ -4,6 +4,7 @@ import type { OrderStatus } from "@/generated/prisma/client";
 import { ok, toResult, type Result } from "@/lib/result";
 import { getSession, requireAdmin } from "@/server/auth-session";
 import { recordAudit } from "@/server/services/audit";
+import { sendPurchaseEvent } from "@/server/integrations/meta/capi";
 import { assessFraud } from "@/server/services/fraud";
 import { placeOrder, transitionOrderStatus, trackOrder } from "@/server/services/order";
 import { clientIp, enforceRateLimit } from "@/server/services/rate-limit";
@@ -18,6 +19,8 @@ export interface PlacedOrder {
   orderNumber: string;
   total: number;
   status: string;
+  /** Shared with the client Pixel so the Purchase event dedupes against CAPI. */
+  metaEventId: string | null;
 }
 
 // Public COD checkout. Rate-limited per IP; totals/stock are recomputed in the
@@ -37,7 +40,22 @@ export async function placeOrderAction(input: PlaceOrderInput): Promise<Result<P
       fraud,
     });
 
-    return ok({ orderNumber: order.orderNumber, total: order.total, status: order.status });
+    // Server-side Purchase event (deduped with the client Pixel via metaEventId).
+    if (order.metaEventId) {
+      await sendPurchaseEvent({
+        eventId: order.metaEventId,
+        value: order.total,
+        phone: order.custPhone,
+        contents: order.items.map((i) => ({ id: i.variantId ?? "", quantity: i.qty })),
+      });
+    }
+
+    return ok({
+      orderNumber: order.orderNumber,
+      total: order.total,
+      status: order.status,
+      metaEventId: order.metaEventId,
+    });
   } catch (error) {
     return toResult(error);
   }

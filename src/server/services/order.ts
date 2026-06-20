@@ -141,6 +141,8 @@ export async function placeOrder(input: PlaceOrderInput, options: PlaceOrderOpti
         couponId,
         fraudScore: options.fraud?.score ?? null,
         fraudVerdict: options.fraud?.verdict ?? null,
+        // Shared with the client Pixel for CAPI dedup (F5.4).
+        metaEventId: crypto.randomUUID(),
         status: OrderStatus.pending,
         items: { create: lines },
         statusHistory: { create: { status: OrderStatus.pending, note: "Order placed" } },
