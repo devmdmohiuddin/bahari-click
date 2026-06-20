@@ -1,13 +1,14 @@
 "use server";
 
 import type { OrderStatus } from "@/generated/prisma/client";
+import { RATE_LIMITS } from "@/lib/rate-limits";
 import { ok, toResult, type Result } from "@/lib/result";
 import { getSession, requireAdmin } from "@/server/auth-session";
 import { recordAudit } from "@/server/services/audit";
 import { sendPurchaseEvent } from "@/server/integrations/meta/capi";
 import { assessFraud } from "@/server/services/fraud";
 import { placeOrder, transitionOrderStatus, trackOrder } from "@/server/services/order";
-import { clientIp, enforceRateLimit } from "@/server/services/rate-limit";
+import { clientIp, enforcePolicy } from "@/server/services/rate-limit";
 import {
   placeOrderSchema,
   trackOrderSchema,
@@ -28,7 +29,7 @@ export interface PlacedOrder {
 export async function placeOrderAction(input: PlaceOrderInput): Promise<Result<PlacedOrder>> {
   try {
     const data = placeOrderSchema.parse(input);
-    await enforceRateLimit(`order:place:${await clientIp()}`, 10, 60 * 60);
+    await enforcePolicy(`order:place:${await clientIp()}`, RATE_LIMITS.orderPlace);
 
     const session = await getSession();
 
@@ -89,7 +90,7 @@ export async function trackOrderAction(
 ): Promise<Result<Awaited<ReturnType<typeof trackOrder>>>> {
   try {
     const { orderNumber, phone } = trackOrderSchema.parse(input);
-    await enforceRateLimit(`order:track:${await clientIp()}`, 30, 60 * 60);
+    await enforcePolicy(`order:track:${await clientIp()}`, RATE_LIMITS.orderTrack);
     const order = await trackOrder(orderNumber, phone);
     return ok(order);
   } catch (error) {

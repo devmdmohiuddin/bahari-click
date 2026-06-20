@@ -282,6 +282,50 @@ export async function transitionOrderStatus(
   return updated;
 }
 
+/** Map a raw courier delivery status to an internal order status (null = ignore). */
+export function deliveryStatusToOrderStatus(raw: string): OrderStatus | null {
+  switch (raw.toLowerCase()) {
+    case "delivered":
+    case "partial_delivered":
+      return OrderStatus.delivered;
+    case "returned":
+    case "return":
+    case "cancelled":
+    case "canceled":
+      return OrderStatus.returned;
+    default:
+      return null;
+  }
+}
+
+/**
+ * Apply a courier-reported status to the order with that tracking code. Used by
+ * the courier webhook and status-sync. Out-of-order/illegal transitions are
+ * ignored (changed:false) rather than throwing, so webhooks stay idempotent.
+ */
+export async function applyCourierStatus(trackingCode: string, rawStatus: string) {
+  const order = await db.order.findFirst({
+    where: { trackingCode },
+    select: { id: true, status: true },
+  });
+  if (!order) throw notFound("Order not found for tracking code");
+
+  const next = deliveryStatusToOrderStatus(rawStatus);
+  if (!next || next === order.status) {
+    return { id: order.id, status: order.status, changed: false };
+  }
+
+  try {
+    const updated = await transitionOrderStatus(order.id, next, {
+      note: `courier:${rawStatus}`,
+    });
+    return { id: updated.id, status: updated.status, changed: true };
+  } catch {
+    // Illegal transition for the current state — ignore (idempotent webhook).
+    return { id: order.id, status: order.status, changed: false };
+  }
+}
+
 // ── Public tracking ──────────────────────────────────────────────────────────
 
 /** Guest order tracking by order number + phone (rate-limited at the action). */

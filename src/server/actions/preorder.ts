@@ -5,7 +5,8 @@ import { ok, toResult, type Result } from "@/lib/result";
 import { requireAdmin } from "@/server/auth-session";
 import { recordAudit } from "@/server/services/audit";
 import { createPreOrder, setPreOrderStatus } from "@/server/services/preorder";
-import { clientIp, enforceRateLimit } from "@/server/services/rate-limit";
+import { RATE_LIMITS } from "@/lib/rate-limits";
+import { clientIp, enforcePolicy } from "@/server/services/rate-limit";
 import { createPreOrderSchema, type CreatePreOrderInput } from "@/server/validators/preorder";
 
 // Public: register a notify-me / pre-order request. Rate-limited per IP.
@@ -14,7 +15,7 @@ export async function createPreOrderAction(
 ): Promise<Result<{ id: string; status: PreOrderStatus }>> {
   try {
     const data = createPreOrderSchema.parse(input);
-    await enforceRateLimit(`preorder:create:${await clientIp()}`, 10, 60 * 60);
+    await enforcePolicy(`preorder:create:${await clientIp()}`, RATE_LIMITS.preorderCreate);
     const request = await createPreOrder(data);
     return ok({ id: request.id, status: request.status });
   } catch (error) {

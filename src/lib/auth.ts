@@ -6,7 +6,9 @@ import { nextCookies } from "better-auth/next-js";
 import { db } from "@/lib/db";
 import { normalizeBdPhone } from "@/lib/phone";
 import { ac, roles } from "@/lib/permissions";
+import { RATE_LIMITS } from "@/lib/rate-limits";
 import { sms } from "@/server/integrations/sms";
+import { enforcePolicy } from "@/server/services/rate-limit";
 
 // Admin roles (must match the UserRole enum in prisma/schema.prisma).
 export const ADMIN_ROLES = ["OWNER", "MANAGER", "STAFF"] as const;
@@ -40,6 +42,8 @@ export const auth = betterAuth({
       allowedAttempts: 3,
       async sendOTP({ phoneNumber: phone, code }) {
         const to = normalizeBdPhone(phone) ?? phone;
+        // Throttle OTP sends per phone to deter SMS-cost abuse.
+        await enforcePolicy(`otp:send:${to}`, RATE_LIMITS.otpSend);
         await sms.send({
           to,
           template: "otp",

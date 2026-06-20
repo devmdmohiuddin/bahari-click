@@ -1,9 +1,10 @@
 "use server";
 
+import { RATE_LIMITS } from "@/lib/rate-limits";
 import { ok, toResult, type Result } from "@/lib/result";
 import { getSession, requireAdmin } from "@/server/auth-session";
 import { recordAudit } from "@/server/services/audit";
-import { clientIp, enforceRateLimit } from "@/server/services/rate-limit";
+import { clientIp, enforcePolicy } from "@/server/services/rate-limit";
 import { createReview, deleteReview, setReviewApproved } from "@/server/services/review";
 import { createReviewSchema, type CreateReviewInput } from "@/server/validators/review";
 
@@ -14,7 +15,7 @@ export async function submitReviewAction(
   try {
     const data = createReviewSchema.parse(input);
 
-    await enforceRateLimit(`review:create:${await clientIp()}`, 5, 60 * 60);
+    await enforcePolicy(`review:create:${await clientIp()}`, RATE_LIMITS.reviewCreate);
 
     const session = await getSession();
     const review = await createReview({ ...data, customerId: session?.user.id ?? null });

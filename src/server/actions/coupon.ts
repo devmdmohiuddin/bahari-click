@@ -5,7 +5,8 @@ import { ok, toResult, type Result } from "@/lib/result";
 import { requireAdmin } from "@/server/auth-session";
 import { recordAudit } from "@/server/services/audit";
 import { createCoupon, updateCoupon, validateCoupon } from "@/server/services/coupon";
-import { clientIp, enforceRateLimit } from "@/server/services/rate-limit";
+import { RATE_LIMITS } from "@/lib/rate-limits";
+import { clientIp, enforcePolicy } from "@/server/services/rate-limit";
 import {
   couponInputSchema,
   validateCouponSchema,
@@ -25,7 +26,7 @@ export async function validateCouponAction(
 ): Promise<Result<CouponPreview>> {
   try {
     const { code, subtotal } = validateCouponSchema.parse(input);
-    await enforceRateLimit(`coupon:validate:${await clientIp()}`, 20, 60 * 60);
+    await enforcePolicy(`coupon:validate:${await clientIp()}`, RATE_LIMITS.couponValidate);
     const { coupon, discount } = await validateCoupon(code, subtotal);
     return ok({ code: coupon.code, type: coupon.type, discount });
   } catch (error) {

@@ -8,17 +8,19 @@ import {
   templateForStatus,
   type OrderSmsData,
 } from "@/server/integrations/sms/templates";
+import { RATE_LIMITS } from "@/lib/rate-limits";
 import { rateLimit } from "@/server/services/rate-limit";
 
 // SMS notifications: builds the right copy per event, sends via the configured
 // adapter, rate-limits per recipient, and logs every attempt. Fail-soft — a
 // failed/limited SMS never throws (it must not break order processing).
 
-const PER_PHONE_LIMIT = 20; // messages
-const PER_PHONE_WINDOW = 60 * 60; // 1 hour
-
 async function sendSms(to: string, template: SmsTemplate, text: string) {
-  const limit = await rateLimit(`sms:${to}`, PER_PHONE_LIMIT, PER_PHONE_WINDOW);
+  const limit = await rateLimit(
+    `sms:${to}`,
+    RATE_LIMITS.smsPerRecipient.limit,
+    RATE_LIMITS.smsPerRecipient.windowSec,
+  );
   if (!limit.ok) {
     await logSms(to, template, text, { ok: false, error: "rate_limited" });
     return { ok: false as const, error: "rate_limited" };

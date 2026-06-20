@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { Prisma } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
 import { AppError } from "@/lib/errors";
+import type { RateLimitPolicy } from "@/lib/rate-limits";
 
 // Postgres-backed fixed-window rate limiter. No Upstash needed for dev/launch
 // (docs/06-cost-and-free-tiers.md). Atomic via INSERT ... ON CONFLICT so
@@ -43,6 +44,11 @@ export async function enforceRateLimit(key: string, limit: number, windowSec: nu
     });
   }
   return result;
+}
+
+/** Enforce a named policy from RATE_LIMITS. `key` is the per-subject identifier. */
+export async function enforcePolicy(key: string, policy: RateLimitPolicy) {
+  return enforceRateLimit(key, policy.limit, policy.windowSec);
 }
 
 /** Best-effort client IP for rate-limit keys (behind Vercel/proxies). */
