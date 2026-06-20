@@ -2,9 +2,16 @@ import "dotenv/config";
 
 import { auth } from "../src/lib/auth";
 import { db } from "../src/lib/db";
+import { createCategory, createSubcategory } from "../src/server/services/category";
+import {
+  createProduct,
+  getProductBySlug,
+  setProductPublished,
+} from "../src/server/services/product";
 
 // Seed scaffold. Idempotent. Provisions the first OWNER admin so /admin is
-// reachable in dev. Catalog/demo data gets added in later phases.
+// reachable in dev, plus a small demo catalog so the storefront has something
+// to render in Phase 1.
 
 const OWNER_EMAIL = process.env.SEED_OWNER_EMAIL ?? "owner@bahari.local";
 const OWNER_PASSWORD = process.env.SEED_OWNER_PASSWORD ?? "Owner@12345";
@@ -30,9 +37,72 @@ async function seedOwner() {
   console.info(`✔ Created OWNER admin: ${OWNER_EMAIL} / ${OWNER_PASSWORD}`);
 }
 
+const DEMO_PRODUCT_SLUG = "classic-leather-wallet";
+
+async function seedCatalog() {
+  if (await db.product.findUnique({ where: { slug: DEMO_PRODUCT_SLUG }, select: { id: true } })) {
+    console.info("✔ Demo catalog already present");
+    return;
+  }
+
+  const category = await createCategory({ name: "Accessories", sortOrder: 1 });
+  const subcategory = await createSubcategory({
+    categoryId: category.id,
+    name: "Wallets",
+    sortOrder: 1,
+  });
+
+  // A product with 2 colors × 2 sizes (4 variants), gallery, variant images, specs.
+  const img = (label: string) => `https://res.cloudinary.com/demo/image/upload/sample.jpg#${label}`;
+  const colors = ["Black", "Brown"];
+  const sizes = ["Standard", "Slim"];
+
+  const product = await createProduct({
+    title: "Classic Leather Wallet",
+    subcategoryId: subcategory.id,
+    description: "Genuine PU leather bifold wallet with RFID protection.",
+    basePrice: 850,
+    compareAtPrice: 1200,
+    soldCountBoost: 120,
+    images: [
+      { url: img("gallery-1"), alt: "Front", sortOrder: 0 },
+      { url: img("gallery-2"), alt: "Open", sortOrder: 1 },
+    ],
+    specs: [
+      { key: "Material", value: "PU Leather", sortOrder: 0 },
+      { key: "Warranty", value: "7-day replacement", sortOrder: 1 },
+    ],
+    variants: colors.flatMap((color, ci) =>
+      sizes.map((size, si) => ({
+        color,
+        size,
+        price: size === "Slim" ? 800 : 850,
+        stock: 10 + ci * 5 + si,
+        images: [{ url: img(`${color}-${size}`), alt: `${color} ${size}`, sortOrder: 0 }],
+      })),
+    ),
+  });
+
+  await setProductPublished(product.id, true);
+  console.info(`✔ Created demo product: ${product.title} (${product.variants.length} variants)`);
+}
+
 async function main() {
   console.info("🌱 Seeding…");
   await seedOwner();
+  await seedCatalog();
+
+  // Read-back verification (Phase 1 acceptance).
+  const readBack = await getProductBySlug(DEMO_PRODUCT_SLUG);
+  if (readBack) {
+    const variantImages = readBack.variants.reduce((n, v) => n + v.images.length, 0);
+    console.info(
+      `🔎 Read back "${readBack.title}": ${readBack.variants.length} variants, ` +
+        `${readBack.images.length} gallery images, ${variantImages} variant images, ` +
+        `${readBack.specs.length} specs, soldDisplay=${readBack.soldCountDisplay}`,
+    );
+  }
+
   console.info("✅ Seed complete.");
 }
 

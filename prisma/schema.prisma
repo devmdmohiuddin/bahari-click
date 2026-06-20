@@ -125,3 +125,136 @@ model AuditLog {
   @@index([adminId])
   @@map("audit_log")
 }
+
+// ─── Catalog ─────────────────────────────────────────────────────────────────
+// Category → Subcategory → Product → Variant. Images link to a product (shared
+// gallery) and/or a variant (drives the variant-switch image). See docs/04-data-model.md.
+
+model Category {
+  id        String  @id @default(cuid())
+  name      String
+  slug      String  @unique
+  image     String?
+  sortOrder Int     @default(0)
+  isActive  Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  subcategories Subcategory[]
+
+  @@index([isActive, sortOrder])
+  @@map("category")
+}
+
+model Subcategory {
+  id         String  @id @default(cuid())
+  categoryId String
+  category   Category @relation(fields: [categoryId], references: [id], onDelete: Cascade)
+  name       String
+  slug       String  @unique
+  image      String?
+  sortOrder  Int     @default(0)
+  isActive   Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  products Product[]
+
+  @@index([categoryId, isActive, sortOrder])
+  @@map("subcategory")
+}
+
+model Product {
+  id            String  @id @default(cuid())
+  title         String
+  slug          String  @unique
+  subcategoryId String
+  subcategory   Subcategory @relation(fields: [subcategoryId], references: [id], onDelete: Restrict)
+
+  description    String  @default("") @db.Text // rich text
+  basePrice      Int // whole BDT; a variant may override
+  compareAtPrice Int? // strikethrough
+
+  soldCountReal  Int @default(0) // incremented on delivered orders
+  soldCountBoost Int @default(0) // manual social-proof offset
+  // display sold = soldCountReal + soldCountBoost
+
+  isPublished Boolean @default(false)
+  isFeatured  Boolean @default(false)
+
+  ratingAvg   Float @default(0) // denormalized from approved reviews
+  ratingCount Int   @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  variants Variant[]
+  images   ProductImage[]
+  specs    Specification[]
+
+  @@index([subcategoryId, isPublished])
+  @@index([isPublished, isFeatured])
+  @@index([isPublished, createdAt])
+  @@index([title])
+  @@map("product")
+}
+
+model Variant {
+  id        String  @id @default(cuid())
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  sku      String  @unique
+  color    String?
+  size     String?
+  price    Int? // null → use Product.basePrice
+  stock    Int     @default(0)
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  images VariantImage[]
+
+  @@unique([productId, color, size])
+  @@index([productId])
+  @@map("variant")
+}
+
+model ProductImage {
+  id        String  @id @default(cuid())
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  url       String // Cloudinary URL/public id
+  alt       String?
+  sortOrder Int     @default(0)
+
+  @@index([productId, sortOrder])
+  @@map("product_image")
+}
+
+model VariantImage {
+  id        String  @id @default(cuid())
+  variantId String
+  variant   Variant @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  url       String
+  alt       String?
+  sortOrder Int     @default(0)
+
+  @@index([variantId, sortOrder])
+  @@map("variant_image")
+}
+
+model Specification {
+  id        String  @id @default(cuid())
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  key       String // "Material"
+  value     String // "PU Leather"
+  sortOrder Int     @default(0)
+
+  @@index([productId, sortOrder])
+  @@map("specification")
+}
