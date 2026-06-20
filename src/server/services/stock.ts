@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { cacheTags, revalidateTags } from "@/lib/cache";
 import { notFound, validationError } from "@/lib/errors";
+import { notifyRestock } from "@/server/services/preorder";
 
 // Variant.stock is authoritative. All changes flow through adjustStock/setStock,
 // which record a StockAdjustment with a reason. Concurrent order decrements in
@@ -55,6 +56,12 @@ export async function adjustStock(
   });
 
   revalidateTags(cacheTags.products, cacheTags.product(change.productId));
+
+  // Out-of-stock → in-stock: notify anyone waiting (marks requests + enqueues SMS jobs).
+  if (change.previousStock === 0 && change.newStock > 0) {
+    await notifyRestock(variantId);
+  }
+
   return { variantId, previousStock: change.previousStock, newStock: change.newStock };
 }
 
