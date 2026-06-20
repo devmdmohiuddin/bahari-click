@@ -9,6 +9,7 @@ export const cacheTags = {
   products: "products",
   product: (id: string) => `product:${id}`,
   productSlug: (slug: string) => `product:slug:${slug}`,
+  shippingZones: "shipping-zones",
 } as const;
 
 /**

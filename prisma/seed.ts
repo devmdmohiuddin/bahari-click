@@ -115,11 +115,27 @@ async function seedReviews() {
   console.info("✔ Created demo reviews (1 approved, 1 pending)");
 }
 
+async function seedShippingZones() {
+  if ((await db.shippingZone.count()) > 0) {
+    console.info("✔ Shipping zones already present");
+    return;
+  }
+  await db.shippingZone.createMany({
+    data: [
+      { name: "Inside Dhaka", fee: 60, freeShipThreshold: 2000, sortOrder: 1 },
+      { name: "Sub-Dhaka", fee: 100, sortOrder: 2 },
+      { name: "Outside Dhaka", fee: 130, sortOrder: 3 },
+    ],
+  });
+  console.info("✔ Created shipping zones (Inside/Sub/Outside Dhaka)");
+}
+
 async function main() {
   console.info("🌱 Seeding…");
   await seedOwner();
   await seedCatalog();
   await seedReviews();
+  await seedShippingZones();
 
   // Read-back verification (Phase 1 acceptance).
   const readBack = await getProductBySlug(DEMO_PRODUCT_SLUG);

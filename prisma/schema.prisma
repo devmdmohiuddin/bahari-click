@@ -383,3 +383,22 @@ model NotifyJob {
   @@index([status, runAt])
   @@map("notify_job")
 }
+
+// ─── Shipping zones [BD] ─────────────────────────────────────────────────────
+// Flat per-zone COD delivery fee (e.g. Inside Dhaka / Sub-Dhaka / Outside Dhaka).
+// Optional free-ship threshold waives the fee above a subtotal. See docs/05-bd-market.md.
+
+model ShippingZone {
+  id                String  @id @default(cuid())
+  name              String
+  fee               Int // whole BDT
+  freeShipThreshold Int? // subtotal at/above which fee is waived
+  isActive          Boolean @default(true)
+  sortOrder         Int     @default(0)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isActive, sortOrder])
+  @@map("shipping_zone")
+}
