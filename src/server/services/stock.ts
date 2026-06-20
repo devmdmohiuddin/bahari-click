@@ -87,7 +87,9 @@ export async function setStock(
 }
 
 /** Active variants at or below the threshold, for the admin low-stock view. */
-export async function lowStockVariants(threshold = 5) {
+export const LOW_STOCK_THRESHOLD = 5;
+
+export async function lowStockVariants(threshold = LOW_STOCK_THRESHOLD) {
   return db.variant.findMany({
     where: { isActive: true, stock: { lte: threshold } },
     orderBy: { stock: "asc" },
@@ -101,3 +103,41 @@ export async function lowStockVariants(threshold = 5) {
     },
   });
 }
+
+/** Every variant with product context + stock, for the admin inventory table. */
+export async function listInventory() {
+  const variants = await db.variant.findMany({
+    orderBy: [{ stock: "asc" }, { createdAt: "asc" }],
+    select: {
+      id: true,
+      sku: true,
+      color: true,
+      size: true,
+      stock: true,
+      isActive: true,
+      product: { select: { id: true, title: true } },
+    },
+  });
+  return variants;
+}
+
+export type InventoryRow = Awaited<ReturnType<typeof listInventory>>[number];
+
+/** Recent stock movements for one variant (the audit trail for stock changes). */
+export async function variantStockHistory(variantId: string, take = 25) {
+  return db.stockAdjustment.findMany({
+    where: { variantId },
+    orderBy: { createdAt: "desc" },
+    take,
+    select: {
+      id: true,
+      delta: true,
+      newStock: true,
+      reason: true,
+      createdAt: true,
+      admin: { select: { name: true } },
+    },
+  });
+}
+
+export type StockHistoryEntry = Awaited<ReturnType<typeof variantStockHistory>>[number];

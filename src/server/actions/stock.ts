@@ -3,7 +3,13 @@
 import { ok, toResult, type Result } from "@/lib/result";
 import { requireAdmin } from "@/server/auth-session";
 import { recordAudit } from "@/server/services/audit";
-import { adjustStock, setStock, type StockChange } from "@/server/services/stock";
+import {
+  adjustStock,
+  setStock,
+  variantStockHistory,
+  type StockChange,
+  type StockHistoryEntry,
+} from "@/server/services/stock";
 import {
   adjustStockSchema,
   setStockSchema,
@@ -26,6 +32,18 @@ export async function adjustStockAction(input: AdjustStockInput): Promise<Result
       diff: change,
     });
     return ok(change);
+  } catch (error) {
+    return toResult(error);
+  }
+}
+
+export async function getStockHistoryAction(
+  variantId: string,
+): Promise<Result<StockHistoryEntry[]>> {
+  try {
+    await requireAdmin();
+    const history = await variantStockHistory(variantId);
+    return ok(history);
   } catch (error) {
     return toResult(error);
   }

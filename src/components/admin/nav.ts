@@ -53,8 +53,8 @@ export const NAV_GROUPS: NavGroup[] = [
     items: [
       { label: "Orders", href: "/admin/orders", icon: ShoppingCart, comingSoon: true },
       { label: "Fulfillment", href: "/admin/fulfillment", icon: Truck, comingSoon: true },
-      { label: "Inventory", href: "/admin/inventory", icon: Boxes, comingSoon: true },
-      { label: "Pre-orders", href: "/admin/preorders", icon: ClipboardList, comingSoon: true },
+      { label: "Inventory", href: "/admin/inventory", icon: Boxes },
+      { label: "Pre-orders", href: "/admin/preorders", icon: ClipboardList },
     ],
   },
   {
