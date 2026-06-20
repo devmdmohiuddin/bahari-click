@@ -6,6 +6,7 @@ import { Menu, X } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
+import { Toaster } from "@/components/ui/toast";
 import { Brand } from "@/components/admin/brand";
 import { SidebarNav } from "@/components/admin/sidebar-nav";
 import { UserMenu, type AdminUser } from "@/components/admin/user-menu";
@@ -93,6 +94,8 @@ export function AdminShell({ user, children }: { user: AdminUser; children: Reac
 
         <main className="flex-1 p-4 sm:p-6 lg:p-8">{children}</main>
       </div>
+
+      <Toaster />
     </div>
   );
 }

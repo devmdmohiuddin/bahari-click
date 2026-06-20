@@ -3,7 +3,12 @@
 import { ok, toResult, type Result } from "@/lib/result";
 import { requireAdmin } from "@/server/auth-session";
 import { recordAudit } from "@/server/services/audit";
-import { createCategory, createSubcategory, updateCategory } from "@/server/services/category";
+import {
+  createCategory,
+  createSubcategory,
+  updateCategory,
+  updateSubcategory,
+} from "@/server/services/category";
 import { createProduct, setProductPublished, updateProduct } from "@/server/services/product";
 import type {
   CategoryInput,
@@ -63,6 +68,26 @@ export async function createSubcategoryAction(
       entity: "Subcategory",
       entityId: subcategory.id,
       diff: { name: subcategory.name, slug: subcategory.slug },
+    });
+    return ok({ id: subcategory.id });
+  } catch (error) {
+    return toResult(error);
+  }
+}
+
+export async function updateSubcategoryAction(
+  id: string,
+  input: Partial<SubcategoryInput>,
+): Promise<Result<{ id: string }>> {
+  try {
+    const session = await requireAdmin();
+    const subcategory = await updateSubcategory(id, input);
+    await recordAudit({
+      adminId: session.user.id,
+      action: "subcategory.update",
+      entity: "Subcategory",
+      entityId: subcategory.id,
+      diff: input,
     });
     return ok({ id: subcategory.id });
   } catch (error) {

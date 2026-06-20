@@ -47,6 +47,22 @@ export async function getSubcategoryBySlug(slug: string) {
   return db.subcategory.findUnique({ where: { slug }, include: { category: true } });
 }
 
+/** Full category tree for admin — includes inactive rows and counts. Uncached. */
+export async function listCategoriesAdmin() {
+  return db.category.findMany({
+    orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+    include: {
+      subcategories: {
+        orderBy: [{ sortOrder: "asc" }, { name: "asc" }],
+        include: { _count: { select: { products: true } } },
+      },
+    },
+  });
+}
+
+export type AdminCategory = Awaited<ReturnType<typeof listCategoriesAdmin>>[number];
+export type AdminSubcategory = AdminCategory["subcategories"][number];
+
 // ── Mutations ────────────────────────────────────────────────────────────────
 
 export async function createCategory(input: CategoryInput) {
@@ -120,4 +136,39 @@ export async function updateCategory(id: string, input: Partial<CategoryInput>) 
   });
   revalidateTags(cacheTags.categories);
   return category;
+}
+
+export async function updateSubcategory(id: string, input: Partial<SubcategoryInput>) {
+  const existing = await db.subcategory.findUnique({ where: { id }, select: { id: true } });
+  if (!existing) throw notFound("Subcategory not found");
+
+  const data = subcategoryInputSchema.partial().parse(input);
+  if (data.slug) {
+    const clash = await db.subcategory.findFirst({
+      where: { slug: data.slug, NOT: { id } },
+      select: { id: true },
+    });
+    if (clash) throw conflict("Slug already in use");
+  }
+  if (data.categoryId) {
+    const parent = await db.category.findUnique({
+      where: { id: data.categoryId },
+      select: { id: true },
+    });
+    if (!parent) throw notFound("Category not found");
+  }
+
+  const subcategory = await db.subcategory.update({
+    where: { id },
+    data: {
+      categoryId: data.categoryId,
+      name: data.name,
+      slug: data.slug,
+      image: data.image,
+      sortOrder: data.sortOrder,
+      isActive: data.isActive,
+    },
+  });
+  revalidateTags(cacheTags.categories);
+  return subcategory;
 }
