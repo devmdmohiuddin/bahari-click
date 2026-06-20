@@ -1,0 +1,127 @@
+// Bahari Click — Prisma schema.
+// Money is Int (whole BDT). Times are UTC. See docs/04-data-model.md.
+// Phase 0 scope: auth (Better Auth) + audit log. Catalog/order tables land in Phase 1+.
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  // Prisma 7: connection URL lives in prisma.config.ts (CLI) and the driver
+  // adapter passed to PrismaClient at runtime (see src/lib/db.ts).
+  provider = "postgresql"
+}
+
+// ─── Auth ────────────────────────────────────────────────────────────────────
+// Unified identity table for both admins (email/password + role) and customers
+// (phone + OTP). Managed by Better Auth; see src/lib/auth.ts.
+
+enum UserRole {
+  OWNER
+  MANAGER
+  STAFF
+  CUSTOMER
+}
+
+model User {
+  id            String  @id
+  name          String
+  email         String  @unique
+  emailVerified Boolean @default(false)
+  image         String?
+
+  // admin plugin
+  role       UserRole  @default(CUSTOMER)
+  banned     Boolean   @default(false)
+  banReason  String?
+  banExpires DateTime?
+
+  // phoneNumber plugin (BD customers — primary identity)
+  phoneNumber         String?  @unique
+  phoneNumberVerified Boolean  @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  sessions  Session[]
+  accounts  Account[]
+  auditLogs AuditLog[]
+
+  @@index([role])
+  @@map("user")
+}
+
+model Session {
+  id        String   @id
+  token     String   @unique
+  expiresAt DateTime
+  ipAddress String?
+  userAgent String?
+
+  // admin plugin: impersonation
+  impersonatedBy String?
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  accessToken           String?
+  refreshToken          String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  idToken               String?
+  password              String?
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([identifier])
+  @@map("verification")
+}
+
+// ─── Audit log ───────────────────────────────────────────────────────────────
+// Records admin mutations on orders/stock and other sensitive entities.
+
+model AuditLog {
+  id       String  @id @default(cuid())
+  adminId  String?
+  admin    User?   @relation(fields: [adminId], references: [id], onDelete: SetNull)
+  action   String // e.g. "order.status_change"
+  entity   String // e.g. "Order"
+  entityId String?
+  diff     Json?
+
+  createdAt DateTime @default(now())
+
+  @@index([entity, entityId])
+  @@index([adminId])
+  @@map("audit_log")
+}

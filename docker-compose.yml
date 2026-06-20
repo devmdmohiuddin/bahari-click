@@ -1,0 +1,26 @@
+# Local Postgres for development — free, no signup.
+# Swap for Neon/Supabase free tier at launch (see docs/06-cost-and-free-tiers.md).
+# Usage: `npm run db:up` then `npm run db:migrate`.
+services:
+  postgres:
+    image: postgres:18-alpine
+    container_name: bahari_click_pg
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: bahari
+      POSTGRES_PASSWORD: bahari
+      POSTGRES_DB: bahari_click
+    ports:
+      # Host 5433 avoids clashing with a system Postgres on 5432.
+      - "5433:5432"
+    volumes:
+      # Postgres 18 stores data in a versioned subdir; mount the parent.
+      - bahari_pg_data:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U bahari -d bahari_click"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  bahari_pg_data:
