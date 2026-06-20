@@ -4,7 +4,7 @@ import type { PreOrderStatus } from "@/generated/prisma/client";
 import { ok, toResult, type Result } from "@/lib/result";
 import { requireAdmin } from "@/server/auth-session";
 import { recordAudit } from "@/server/services/audit";
-import { createPreOrder, setPreOrderStatus } from "@/server/services/preorder";
+import { createPreOrder, notifyPreOrder, setPreOrderStatus } from "@/server/services/preorder";
 import { RATE_LIMITS } from "@/lib/rate-limits";
 import { clientIp, enforcePolicy } from "@/server/services/rate-limit";
 import { createPreOrderSchema, type CreatePreOrderInput } from "@/server/validators/preorder";
@@ -18,6 +18,26 @@ export async function createPreOrderAction(
     await enforcePolicy(`preorder:create:${await clientIp()}`, RATE_LIMITS.preorderCreate);
     const request = await createPreOrder(data);
     return ok({ id: request.id, status: request.status });
+  } catch (error) {
+    return toResult(error);
+  }
+}
+
+// Admin: mark a pending request restocked — notifies the customer (queues SMS).
+export async function notifyPreOrderAction(
+  id: string,
+): Promise<Result<{ id: string; status: PreOrderStatus }>> {
+  try {
+    const session = await requireAdmin();
+    const result = await notifyPreOrder(id);
+    await recordAudit({
+      adminId: session.user.id,
+      action: "preorder.notify",
+      entity: "PreOrderRequest",
+      entityId: id,
+      diff: { status: result.status },
+    });
+    return ok(result);
   } catch (error) {
     return toResult(error);
   }

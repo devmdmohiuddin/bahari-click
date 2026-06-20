@@ -68,6 +68,41 @@ export async function notifyRestock(variantId: string): Promise<number> {
   return pending.length;
 }
 
+/**
+ * Admin "mark restocked" for a single pending request: flip it to `notified`
+ * and enqueue one restock SMS job (the cron worker drains NotifyJob in Phase 5).
+ */
+export async function notifyPreOrder(id: string) {
+  const req = await db.preOrderRequest.findUnique({
+    where: { id },
+    select: { id: true, status: true, phone: true, productId: true, variantId: true },
+  });
+  if (!req) throw notFound("Pre-order request not found");
+  if (req.status !== PreOrderStatus.pending) {
+    throw conflict("Only pending requests can be notified");
+  }
+
+  await db.$transaction([
+    db.preOrderRequest.update({
+      where: { id },
+      data: { status: PreOrderStatus.notified, notifiedAt: new Date() },
+    }),
+    db.notifyJob.create({
+      data: {
+        type: "preorder_restock",
+        payload: {
+          preOrderRequestId: req.id,
+          phone: req.phone,
+          productId: req.productId,
+          variantId: req.variantId,
+        },
+      },
+    }),
+  ]);
+
+  return { id: req.id, status: PreOrderStatus.notified };
+}
+
 // Allowed admin status transitions.
 const TRANSITIONS: Record<PreOrderStatus, PreOrderStatus[]> = {
   pending: [PreOrderStatus.notified, PreOrderStatus.cancelled],
@@ -107,5 +142,7 @@ export async function listPreOrders(status?: PreOrderStatus) {
     },
   });
 }
+
+export type PreOrderListItem = Awaited<ReturnType<typeof listPreOrders>>[number];
 
 export { PreOrderStatus };
