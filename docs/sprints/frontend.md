@@ -7,8 +7,8 @@ Next.js App Router + shadcn/ui + Tailwind. Mobile-first — most buyers arrive f
 ## Phase 0 — Foundation
 
 ### S0.1 App shell & design system
-- **Build:** Root layout, header (logo, search slot, cart icon w/ count), footer, mobile nav drawer. shadcn theme + tokens (BDT `৳` formatting util, Asia/Dhaka time util). Toast/skeleton primitives.
-- **Acceptance:** Responsive shell renders; cart icon reflects Zustand count.
+- **Build:** Root layout, header (**Bahari Click logo**, search slot, cart icon w/ count), footer, mobile nav drawer. **Apply [brand guidelines](../07-brand-guidelines.md):** shadcn theme with brand-orange primary (`16 100% 56%`), pill buttons/badges (`--radius: 0.75rem`), brand fonts via `next/font` (Plus Jakarta Sans headings + Inter body, Hind Siliguri for Bangla), favicon = the click mark, brand-orange focus ring. Utils: BDT `৳` formatting, Asia/Dhaka time. Toast/skeleton primitives; **loading spinner uses the click/sparkle motif**.
+- **Acceptance:** Responsive shell renders with brand colors/fonts/logo; no hard-coded colors (all via tokens); cart icon reflects Zustand count.
 
 ### S0.2 Cart store
 - **Build:** Zustand cart (add/remove/qty, persist to localStorage). Selectors for count/subtotal.

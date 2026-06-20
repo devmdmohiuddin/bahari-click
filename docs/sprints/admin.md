@@ -7,8 +7,8 @@ Internal tool at `/admin`, same Next.js app, role-gated (OWNER / MANAGER / STAFF
 ## Phase 0 — Foundation
 
 ### A0.1 Admin shell & auth
-- **Build:** `/admin` layout (sidebar nav, topbar, user menu), role-gated middleware, login page. Empty dashboard placeholder.
-- **Acceptance:** Only authenticated admins reach `/admin`; role restricts nav items.
+- **Build:** `/admin` layout (sidebar nav with **Bahari Click logo**, topbar, user menu), role-gated middleware, login page. Empty dashboard placeholder. **Reuse the same [brand tokens](../07-brand-guidelines.md)** (orange primary, pill buttons, brand fonts) but a calmer, data-dense layout — orange as accent, neutral surfaces for tables/forms.
+- **Acceptance:** Only authenticated admins reach `/admin`; role restricts nav items; UI uses brand tokens (no hard-coded colors).
 - **Deps:** Backend F0.3.
 
 ---
