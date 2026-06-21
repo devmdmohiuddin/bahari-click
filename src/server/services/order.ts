@@ -1,8 +1,9 @@
-import { OrderStatus } from "@/generated/prisma/client";
+import { OrderStatus, type Prisma } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
 import { cacheTags, revalidateTags } from "@/lib/cache";
 import { conflict, notFound, validationError } from "@/lib/errors";
 import { normalizeBdPhone } from "@/lib/phone";
+import { EDITABLE_STATUSES, ORDER_TRANSITIONS } from "@/lib/orders";
 import { incrementCouponUsage, validateCoupon } from "@/server/services/coupon";
 import { sendOrderStatusSms } from "@/server/services/notifications";
 import { resolveShippingFee } from "@/server/services/shipping";
@@ -173,17 +174,7 @@ export async function getOrderById(id: string) {
 }
 
 // ── Status transitions ───────────────────────────────────────────────────────
-
-// Allowed forward transitions. returned/cancelled are terminal.
-const ORDER_TRANSITIONS: Record<OrderStatus, OrderStatus[]> = {
-  pending: [OrderStatus.confirmed, OrderStatus.cancelled],
-  confirmed: [OrderStatus.packed, OrderStatus.cancelled],
-  packed: [OrderStatus.dispatched, OrderStatus.cancelled],
-  dispatched: [OrderStatus.delivered, OrderStatus.returned],
-  delivered: [OrderStatus.returned],
-  returned: [],
-  cancelled: [],
-};
+// Allowed forward transitions live in @/lib/orders (shared with the admin UI).
 
 export interface TransitionOptions {
   note?: string;
@@ -325,6 +316,172 @@ export async function applyCourierStatus(trackingCode: string, rawStatus: string
     return { id: order.id, status: order.status, changed: false };
   }
 }
+
+// ── Admin: list, notes, item edits ─────────────────────────────────────────────
+
+export interface AdminOrderFilters {
+  status?: OrderStatus;
+  search?: string;
+  from?: Date;
+  to?: Date;
+  page?: number;
+  pageSize?: number;
+}
+
+/** Paginated admin order list with status / phone+number search / date range. */
+export async function listOrdersAdmin(filters: AdminOrderFilters = {}) {
+  const page = Math.max(1, filters.page ?? 1);
+  const pageSize = Math.min(100, Math.max(1, filters.pageSize ?? 20));
+  const search = filters.search?.trim();
+
+  const where: Prisma.OrderWhereInput = {
+    ...(filters.status ? { status: filters.status } : {}),
+    ...(search
+      ? {
+          OR: [
+            { orderNumber: { contains: search, mode: "insensitive" } },
+            { custPhone: { contains: search } },
+            { custName: { contains: search, mode: "insensitive" } },
+          ],
+        }
+      : {}),
+    ...(filters.from || filters.to
+      ? {
+          createdAt: {
+            ...(filters.from ? { gte: filters.from } : {}),
+            ...(filters.to ? { lte: filters.to } : {}),
+          },
+        }
+      : {}),
+  };
+
+  const [total, items] = await Promise.all([
+    db.order.count({ where }),
+    db.order.findMany({
+      where,
+      orderBy: { createdAt: "desc" },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+      select: {
+        id: true,
+        orderNumber: true,
+        status: true,
+        total: true,
+        custName: true,
+        custPhone: true,
+        fraudScore: true,
+        fraudVerdict: true,
+        createdAt: true,
+        zone: { select: { name: true } },
+        _count: { select: { items: true } },
+      },
+    }),
+  ]);
+
+  return { items, total, page, pageSize, totalPages: Math.max(1, Math.ceil(total / pageSize)) };
+}
+
+export type AdminOrderRow = Awaited<ReturnType<typeof listOrdersAdmin>>["items"][number];
+
+/** Set/clear the internal note on an order. */
+export async function setOrderNote(orderId: string, note: string | null) {
+  const exists = await db.order.findUnique({ where: { id: orderId }, select: { id: true } });
+  if (!exists) throw notFound("Order not found");
+  await db.order.update({ where: { id: orderId }, data: { internalNote: note?.trim() || null } });
+  return { id: orderId };
+}
+
+export interface OrderItemEdit {
+  orderItemId: string;
+  qty: number; // 0 removes the line
+}
+
+/**
+ * Edit order line quantities (and remove lines) before dispatch. Stock is
+ * adjusted by the delta (guarded against oversell), line totals + subtotal +
+ * total are recomputed, and any discount is clamped to the new subtotal.
+ */
+export async function editOrderItems(
+  orderId: string,
+  edits: OrderItemEdit[],
+  adminId?: string | null,
+) {
+  const order = await db.order.findUnique({ where: { id: orderId }, include: { items: true } });
+  if (!order) throw notFound("Order not found");
+  if (!EDITABLE_STATUSES.includes(order.status)) {
+    throw conflict(
+      `Items can only be edited while pending or confirmed (order is ${order.status})`,
+    );
+  }
+
+  const editMap = new Map(edits.map((e) => [e.orderItemId, e.qty]));
+  const known = new Set(order.items.map((i) => i.id));
+  for (const id of editMap.keys()) {
+    if (!known.has(id)) throw validationError("Edit refers to an item not on this order");
+  }
+
+  const remainingCount = order.items.filter((it) => (editMap.get(it.id) ?? it.qty) > 0).length;
+  if (remainingCount === 0) throw validationError("An order must keep at least one item");
+
+  await db.$transaction(async (tx) => {
+    let subtotal = 0;
+    for (const it of order.items) {
+      const newQty = editMap.has(it.id) ? editMap.get(it.id)! : it.qty;
+      const delta = newQty - it.qty; // +ve → more units leave inventory
+
+      if (delta !== 0 && it.variantId) {
+        if (delta > 0) {
+          const dec = await tx.variant.updateMany({
+            where: { id: it.variantId, stock: { gte: delta } },
+            data: { stock: { decrement: delta } },
+          });
+          if (dec.count === 0) throw conflict(`Insufficient stock for ${it.productTitle}`);
+        } else {
+          await tx.variant.update({
+            where: { id: it.variantId },
+            data: { stock: { increment: -delta } },
+          });
+        }
+        const after = await tx.variant.findUnique({
+          where: { id: it.variantId },
+          select: { stock: true },
+        });
+        await tx.stockAdjustment.create({
+          data: {
+            variantId: it.variantId,
+            delta: -delta,
+            newStock: after!.stock,
+            reason: `edit:${order.orderNumber}`,
+            adminId: adminId ?? null,
+          },
+        });
+      }
+
+      if (newQty === 0) {
+        await tx.orderItem.delete({ where: { id: it.id } });
+      } else {
+        if (delta !== 0) {
+          await tx.orderItem.update({
+            where: { id: it.id },
+            data: { qty: newQty, lineTotal: it.unitPrice * newQty },
+          });
+        }
+        subtotal += it.unitPrice * newQty;
+      }
+    }
+
+    const discount = Math.min(order.discount, subtotal);
+    await tx.order.update({
+      where: { id: orderId },
+      data: { subtotal, discount, total: subtotal - discount + order.shippingFee },
+    });
+  });
+
+  revalidateTags(cacheTags.products);
+  return getOrderById(orderId);
+}
+
+export type AdminOrderDetail = Awaited<ReturnType<typeof getOrderById>>;
 
 // ── Public tracking ──────────────────────────────────────────────────────────
 

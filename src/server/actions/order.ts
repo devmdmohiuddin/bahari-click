@@ -7,7 +7,14 @@ import { getSession, requireAdmin } from "@/server/auth-session";
 import { recordAudit } from "@/server/services/audit";
 import { sendPurchaseEvent } from "@/server/integrations/meta/capi";
 import { assessFraud } from "@/server/services/fraud";
-import { placeOrder, transitionOrderStatus, trackOrder } from "@/server/services/order";
+import {
+  editOrderItems,
+  placeOrder,
+  setOrderNote,
+  transitionOrderStatus,
+  trackOrder,
+  type OrderItemEdit,
+} from "@/server/services/order";
 import { clientIp, enforcePolicy } from "@/server/services/rate-limit";
 import {
   placeOrderSchema,
@@ -79,6 +86,47 @@ export async function updateOrderStatusAction(
       diff: { status, note },
     });
     return ok({ id: order.id, status: order.status });
+  } catch (error) {
+    return toResult(error);
+  }
+}
+
+// Admin: set/clear an order's internal note.
+export async function setOrderNoteAction(
+  orderId: string,
+  note: string | null,
+): Promise<Result<{ id: string }>> {
+  try {
+    const session = await requireAdmin();
+    const result = await setOrderNote(orderId, note);
+    await recordAudit({
+      adminId: session.user.id,
+      action: "order.note",
+      entity: "Order",
+      entityId: orderId,
+    });
+    return ok(result);
+  } catch (error) {
+    return toResult(error);
+  }
+}
+
+// Admin: edit order line quantities (recompute totals + adjust stock).
+export async function editOrderItemsAction(
+  orderId: string,
+  edits: OrderItemEdit[],
+): Promise<Result<{ id: string }>> {
+  try {
+    const session = await requireAdmin();
+    const order = await editOrderItems(orderId, edits, session.user.id);
+    await recordAudit({
+      adminId: session.user.id,
+      action: "order.edit_items",
+      entity: "Order",
+      entityId: orderId,
+      diff: { edits, total: order.total },
+    });
+    return ok({ id: order.id });
   } catch (error) {
     return toResult(error);
   }
