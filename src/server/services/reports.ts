@@ -96,6 +96,14 @@ export async function codCollected(from = daysAgo(30), to = new Date()) {
   return { total: agg._sum.total ?? 0, orders: agg._count._all };
 }
 
+/** Dashboard bundle for a rolling window of N days (keeps time math off the RSC). */
+export async function getDashboardForDays(days = 30) {
+  const to = new Date();
+  const from = daysAgo(days);
+  const data = await getDashboard(from, to);
+  return { ...data, todayIso: to.toISOString().slice(0, 10) };
+}
+
 /** One-call dashboard bundle. */
 export async function getDashboard(from = daysAgo(30), to = new Date()) {
   const [sales, statuses, top, lowStock, cod] = await Promise.all([
