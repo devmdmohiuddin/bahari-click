@@ -7,7 +7,9 @@ import {
   createProduct,
   getProductBySlug,
   setProductPublished,
+  slugify,
 } from "../src/server/services/product";
+import type { ProductCreateInput } from "../src/server/validators/catalog";
 import { createReview, setReviewApproved } from "../src/server/services/review";
 
 // Seed scaffold. Idempotent. Provisions the first OWNER admin so /admin is
@@ -115,6 +117,215 @@ async function seedReviews() {
   console.info("✔ Created demo reviews (1 approved, 1 pending)");
 }
 
+// ── Richer demo catalog (idempotent per-slug) ────────────────────────────────
+// Gives the storefront a full grid to render across two categories, with a mix
+// of single-/multi-variant products, sale prices, sold-count boosts, and one
+// out-of-stock item. Re-running only adds what's missing.
+
+const CLD = (id: string) => `https://res.cloudinary.com/demo/image/upload/${id}`;
+const DEMO_IMAGES = [
+  "samples/ecommerce/leather-bag-gray.jpg",
+  "samples/ecommerce/accessories-bag.jpg",
+  "samples/ecommerce/shoes.jpg",
+  "cld-sample.jpg",
+  "cld-sample-2.jpg",
+  "cld-sample-3.jpg",
+  "cld-sample-4.jpg",
+  "cld-sample-5.jpg",
+];
+
+async function ensureCategory(name: string, sortOrder: number) {
+  const slug = slugify(name);
+  const existing = await db.category.findUnique({ where: { slug }, select: { id: true } });
+  if (existing) return existing.id;
+  const created = await createCategory({ name, sortOrder, isActive: true });
+  return created.id;
+}
+
+async function ensureSubcategory(categoryId: string, name: string, sortOrder: number) {
+  const slug = slugify(name);
+  const existing = await db.subcategory.findUnique({ where: { slug }, select: { id: true } });
+  if (existing) return existing.id;
+  const created = await createSubcategory({ categoryId, name, sortOrder, isActive: true });
+  return created.id;
+}
+
+type DemoProduct = Omit<ProductCreateInput, "subcategoryId"> & { featured?: boolean };
+
+async function addProduct(subcategoryId: string, input: DemoProduct) {
+  const slug = slugify(input.slug ?? input.title);
+  if (await db.product.findUnique({ where: { slug }, select: { id: true } })) return;
+  const { featured, ...rest } = input;
+  const product = await createProduct({ ...rest, subcategoryId, isFeatured: featured ?? false });
+  await setProductPublished(product.id, true);
+}
+
+async function seedDemoCatalog() {
+  const accessories = await ensureCategory("Accessories", 1);
+  const gadgets = await ensureCategory("Gadgets", 2);
+
+  const belts = await ensureSubcategory(accessories, "Belts", 2);
+  const sunglasses = await ensureSubcategory(accessories, "Sunglasses", 3);
+  const earbuds = await ensureSubcategory(gadgets, "Earbuds", 1);
+  const chargers = await ensureSubcategory(gadgets, "Chargers", 2);
+  const watches = await ensureSubcategory(gadgets, "Smartwatches", 3);
+
+  const img = (i: number) => [
+    { url: CLD(DEMO_IMAGES[i % DEMO_IMAGES.length]), alt: null, sortOrder: 0 },
+  ];
+  // Single-variant product → quick add-to-cart works straight from the card.
+  const single = (price: number, stock = 25) => [{ price, stock }];
+
+  const catalog: [string, DemoProduct][] = [
+    [
+      belts,
+      {
+        title: "Genuine Leather Belt",
+        basePrice: 650,
+        compareAtPrice: 900,
+        soldCountBoost: 240,
+        featured: true,
+        images: img(0),
+        variants: single(650),
+      },
+    ],
+    [
+      belts,
+      {
+        title: "Reversible Formal Belt",
+        basePrice: 780,
+        soldCountBoost: 60,
+        images: img(1),
+        variants: single(780),
+      },
+    ],
+    [
+      sunglasses,
+      {
+        title: "Polarized Aviator Sunglasses",
+        basePrice: 1200,
+        compareAtPrice: 1800,
+        soldCountBoost: 510,
+        featured: true,
+        images: img(2),
+        variants: single(1200),
+      },
+    ],
+    [
+      sunglasses,
+      {
+        title: "Retro Round Sunglasses",
+        basePrice: 950,
+        soldCountBoost: 130,
+        images: img(3),
+        variants: single(950, 0),
+      },
+    ],
+    [
+      earbuds,
+      {
+        title: "Wireless ANC Earbuds Pro",
+        basePrice: 2200,
+        compareAtPrice: 2990,
+        soldCountBoost: 1320,
+        featured: true,
+        images: img(4),
+        variants: [
+          { color: "Black", price: 2200, stock: 18 },
+          { color: "White", price: 2200, stock: 12 },
+        ],
+      },
+    ],
+    [
+      earbuds,
+      {
+        title: "Sport Bluetooth Earphones",
+        basePrice: 1450,
+        soldCountBoost: 420,
+        images: img(5),
+        variants: single(1450),
+      },
+    ],
+    [
+      chargers,
+      {
+        title: "65W GaN Fast Charger",
+        basePrice: 1850,
+        compareAtPrice: 2400,
+        soldCountBoost: 770,
+        featured: true,
+        images: img(6),
+        variants: single(1850),
+      },
+    ],
+    [
+      chargers,
+      {
+        title: "3-in-1 Charging Cable",
+        basePrice: 350,
+        soldCountBoost: 980,
+        images: img(7),
+        variants: single(350),
+      },
+    ],
+    [
+      chargers,
+      {
+        title: "10000mAh Power Bank",
+        basePrice: 1300,
+        compareAtPrice: 1600,
+        soldCountBoost: 640,
+        images: img(0),
+        variants: single(1300),
+      },
+    ],
+    [
+      watches,
+      {
+        title: "AMOLED Smartwatch",
+        basePrice: 3200,
+        compareAtPrice: 4500,
+        soldCountBoost: 1850,
+        featured: true,
+        images: img(1),
+        variants: [
+          { size: "44mm", price: 3200, stock: 9 },
+          { size: "40mm", price: 3000, stock: 14 },
+        ],
+      },
+    ],
+    [
+      watches,
+      {
+        title: "Fitness Tracker Band",
+        basePrice: 1100,
+        soldCountBoost: 360,
+        images: img(2),
+        variants: single(1100),
+      },
+    ],
+    [
+      watches,
+      {
+        title: "Classic Analog Watch",
+        basePrice: 2400,
+        soldCountBoost: 75,
+        images: img(3),
+        variants: single(2400),
+      },
+    ],
+  ];
+
+  let added = 0;
+  for (const [subcategoryId, product] of catalog) {
+    const slug = slugify(product.title);
+    const before = await db.product.findUnique({ where: { slug }, select: { id: true } });
+    await addProduct(subcategoryId, product);
+    if (!before) added++;
+  }
+  console.info(`✔ Demo catalog enriched (${added} new products across Accessories & Gadgets)`);
+}
+
 async function seedShippingZones() {
   if ((await db.shippingZone.count()) > 0) {
     console.info("✔ Shipping zones already present");
@@ -134,6 +345,7 @@ async function main() {
   console.info("🌱 Seeding…");
   await seedOwner();
   await seedCatalog();
+  await seedDemoCatalog();
   await seedReviews();
   await seedShippingZones();
 
