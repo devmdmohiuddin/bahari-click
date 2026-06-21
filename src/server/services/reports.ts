@@ -104,6 +104,24 @@ export async function getDashboardForDays(days = 30) {
   return { ...data, todayIso: to.toISOString().slice(0, 10) };
 }
 
+/**
+ * Report bundle for an explicit (optional) date range. Defaults to the last
+ * 30 days. Echoes the resolved range as yyyy-mm-dd for the filter inputs, and
+ * adds the average delivered-order value. Date math lives here, not in the RSC.
+ */
+export async function getReport(fromIso?: string, toIso?: string) {
+  const to = toIso ? new Date(`${toIso}T23:59:59.999`) : new Date();
+  const from = fromIso ? new Date(`${fromIso}T00:00:00`) : daysAgo(30);
+  const data = await getDashboard(from, to);
+  const avgOrderValue = data.deliveredOrders ? Math.round(data.revenue / data.deliveredOrders) : 0;
+  return {
+    ...data,
+    avgOrderValue,
+    fromInput: from.toISOString().slice(0, 10),
+    toInput: to.toISOString().slice(0, 10),
+  };
+}
+
 /** One-call dashboard bundle. */
 export async function getDashboard(from = daysAgo(30), to = new Date()) {
   const [sales, statuses, top, lowStock, cod] = await Promise.all([

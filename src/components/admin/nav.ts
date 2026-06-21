@@ -71,7 +71,6 @@ export const NAV_GROUPS: NavGroup[] = [
         href: "/admin/reports",
         icon: BarChart3,
         roles: ["OWNER", "MANAGER"],
-        comingSoon: true,
       },
       {
         label: "Settings",
