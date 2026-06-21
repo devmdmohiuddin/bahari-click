@@ -88,3 +88,22 @@ export async function sendOrderStatusSms(order: OrderForSms, status: string) {
 export async function sendRestockedSms(phone: string, productTitle: string) {
   return sendSms(phone, "restocked", buildRestockedSms(productTitle));
 }
+
+/** Recent SMS sent to a phone — used for the per-order SMS history (keyed by custPhone). */
+export async function listSmsForPhone(phone: string, take = 20) {
+  return db.smsLog.findMany({
+    where: { to: phone },
+    orderBy: { createdAt: "desc" },
+    take,
+    select: {
+      id: true,
+      template: true,
+      text: true,
+      ok: true,
+      error: true,
+      createdAt: true,
+    },
+  });
+}
+
+export type OrderSmsLogEntry = Awaited<ReturnType<typeof listSmsForPhone>>[number];

@@ -3,7 +3,18 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ArrowLeft, Loader2, MapPin, Pencil, ShieldAlert, Trash2 } from "lucide-react";
+import {
+  ArrowLeft,
+  ExternalLink,
+  Loader2,
+  MapPin,
+  MessageSquare,
+  Pencil,
+  RefreshCw,
+  ShieldAlert,
+  Trash2,
+  Truck,
+} from "lucide-react";
 
 import { formatBdt, formatDate } from "@/lib/format";
 import {
@@ -12,6 +23,7 @@ import {
   STATUS_LABEL,
   type OrderStatusValue,
 } from "@/lib/orders";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -44,7 +56,16 @@ import {
   setOrderNoteAction,
   updateOrderStatusAction,
 } from "@/server/actions/order";
+import {
+  dispatchOrderAction,
+  reassessFraudAction,
+  resendOrderSmsAction,
+  syncOrderCourierAction,
+} from "@/server/actions/dispatch";
 import type { AdminOrderDetail } from "@/server/services/order";
+import type { OrderSmsLogEntry } from "@/server/services/notifications";
+
+const DISPATCHABLE: OrderStatusValue[] = ["confirmed", "packed"];
 
 const DESTRUCTIVE: OrderStatusValue[] = ["cancelled", "returned"];
 
@@ -54,7 +75,15 @@ function actionLabel(next: OrderStatusValue): string {
   return `Mark ${STATUS_LABEL[next].toLowerCase()}`;
 }
 
-export function OrderDetail({ order }: { order: AdminOrderDetail }) {
+export function OrderDetail({
+  order,
+  smsLog,
+  trackingUrl,
+}: {
+  order: AdminOrderDetail;
+  smsLog: OrderSmsLogEntry[];
+  trackingUrl: string | null;
+}) {
   const router = useRouter();
   const status = order.status as OrderStatusValue;
   const transitions = ORDER_TRANSITIONS[status];
@@ -99,6 +128,50 @@ export function OrderDetail({ order }: { order: AdminOrderDetail }) {
     setBusy(false);
     if (!res.ok) return toast.error("Could not save note", res.error.message);
     toast.success("Note saved");
+    router.refresh();
+  }
+
+  async function dispatch() {
+    setBusy(true);
+    const res = await dispatchOrderAction(order.id);
+    setBusy(false);
+    if (!res.ok) return toast.error("Could not dispatch", res.error.message);
+    toast.success(
+      res.data.alreadyDispatched ? "Already dispatched" : "Dispatched to courier",
+      `Tracking ${res.data.trackingCode}`,
+    );
+    router.refresh();
+  }
+
+  async function syncCourier() {
+    setBusy(true);
+    const res = await syncOrderCourierAction(order.id);
+    setBusy(false);
+    if (!res.ok) return toast.error("Could not sync", res.error.message);
+    if (res.data.applied) toast.success("Status updated", `Courier: ${res.data.courierStatus}`);
+    else toast.info("No change", `Courier status: ${res.data.courierStatus}`);
+    router.refresh();
+  }
+
+  async function reassessFraud() {
+    setBusy(true);
+    const res = await reassessFraudAction(order.id);
+    setBusy(false);
+    if (!res.ok) return toast.error("Could not re-check", res.error.message);
+    toast.success(
+      "Fraud re-checked",
+      `${res.data.verdict}${res.data.score !== null ? ` · ${res.data.score}` : ""}`,
+    );
+    router.refresh();
+  }
+
+  async function resendSms() {
+    setBusy(true);
+    const res = await resendOrderSmsAction(order.id);
+    setBusy(false);
+    if (!res.ok) return toast.error("Could not resend", res.error.message);
+    if (res.data.sent) toast.success("SMS resent");
+    else toast.info("Not sent", res.data.reason);
     router.refresh();
   }
 
@@ -326,8 +399,73 @@ export function OrderDetail({ order }: { order: AdminOrderDetail }) {
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
+                <Truck className="size-4" /> Fulfillment
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              {order.trackingCode ? (
+                <>
+                  <div className="space-y-1 text-sm">
+                    <div className="flex justify-between gap-2">
+                      <span className="text-muted-foreground">Courier</span>
+                      <span className="font-medium capitalize">{order.courierName ?? "—"}</span>
+                    </div>
+                    <div className="flex justify-between gap-2">
+                      <span className="text-muted-foreground">Tracking</span>
+                      {trackingUrl ? (
+                        <a
+                          href={trackingUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-brand inline-flex items-center gap-1 font-medium hover:underline"
+                        >
+                          {order.trackingCode}
+                          <ExternalLink className="size-3" />
+                        </a>
+                      ) : (
+                        <span className="font-mono text-xs">{order.trackingCode}</span>
+                      )}
+                    </div>
+                  </div>
+                  {status === "dispatched" && (
+                    <Button
+                      variant="outline"
+                      className="w-full"
+                      disabled={busy}
+                      onClick={syncCourier}
+                    >
+                      <RefreshCw />
+                      Sync courier status
+                    </Button>
+                  )}
+                </>
+              ) : DISPATCHABLE.includes(status) ? (
+                <>
+                  <p className="text-muted-foreground text-sm">
+                    Create a consignment and hand this order to the courier.
+                  </p>
+                  <Button className="w-full" disabled={busy} onClick={dispatch}>
+                    {busy ? <Loader2 className="animate-spin" /> : <Truck />}
+                    Dispatch order
+                  </Button>
+                </>
+              ) : (
+                <p className="text-muted-foreground text-sm">
+                  Confirm the order before dispatching to a courier.
+                </p>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex-row items-center justify-between space-y-0">
+              <CardTitle className="flex items-center gap-2">
                 <ShieldAlert className="size-4" /> Fraud check
               </CardTitle>
+              <Button variant="ghost" size="sm" disabled={busy} onClick={reassessFraud}>
+                <RefreshCw />
+                Re-run
+              </Button>
             </CardHeader>
             <CardContent>
               <FraudBadge verdict={order.fraudVerdict} score={order.fraudScore} />
@@ -369,6 +507,42 @@ export function OrderDetail({ order }: { order: AdminOrderDetail }) {
               >
                 Save note
               </Button>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader className="flex-row items-center justify-between space-y-0">
+              <CardTitle className="flex items-center gap-2">
+                <MessageSquare className="size-4" /> SMS log
+              </CardTitle>
+              <Button variant="ghost" size="sm" disabled={busy} onClick={resendSms}>
+                <RefreshCw />
+                Resend
+              </Button>
+            </CardHeader>
+            <CardContent>
+              {smsLog.length === 0 ? (
+                <p className="text-muted-foreground text-sm">No SMS sent for this customer yet.</p>
+              ) : (
+                <ul className="space-y-2 text-sm">
+                  {smsLog.map((s) => (
+                    <li key={s.id} className="flex items-start justify-between gap-2">
+                      <div className="min-w-0">
+                        <p className="font-medium capitalize">{s.template.replace(/_/g, " ")}</p>
+                        <p className="text-muted-foreground truncate text-xs">{s.text}</p>
+                      </div>
+                      <div className="shrink-0 text-right">
+                        <Badge variant={s.ok ? "success" : "destructive"}>
+                          {s.ok ? "Sent" : "Failed"}
+                        </Badge>
+                        <p className="text-muted-foreground mt-0.5 text-xs">
+                          {formatDate(s.createdAt)}
+                        </p>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
             </CardContent>
           </Card>
         </div>

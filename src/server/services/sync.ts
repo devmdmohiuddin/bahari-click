@@ -1,5 +1,6 @@
 import { JobStatus, OrderStatus } from "@/generated/prisma/client";
 import { db } from "@/lib/db";
+import { conflict, notFound } from "@/lib/errors";
 import { courier, type CourierStatus } from "@/server/integrations/courier";
 import { sendRestockedSms } from "@/server/services/notifications";
 import { transitionOrderStatus } from "@/server/services/order";
@@ -90,6 +91,26 @@ export async function syncCourierStatuses(limit = BATCH) {
     }
   }
   return { checked: orders.length, updated };
+}
+
+/** On-demand courier-status sync for a single dispatched order (admin button). */
+export async function syncOrderCourier(orderId: string) {
+  const order = await db.order.findUnique({
+    where: { id: orderId },
+    select: { id: true, status: true, trackingCode: true },
+  });
+  if (!order) throw notFound("Order not found");
+  if (!order.trackingCode) throw conflict("Order has no tracking code yet");
+
+  const courierStatus = await courier.getStatus(order.trackingCode);
+  const next = courierToOrderStatus(courierStatus);
+
+  let applied = false;
+  if (next && next !== order.status) {
+    await transitionOrderStatus(order.id, next, { note: `courier:${courierStatus}` });
+    applied = true;
+  }
+  return { courierStatus, applied };
 }
 
 export async function runSync() {
