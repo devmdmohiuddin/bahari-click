@@ -22,6 +22,9 @@ export interface ProductCard {
   isFeatured: boolean;
   inStock: boolean;
   image: { url: string; alt: string | null } | null;
+  /** Present only for single-variant products — enables quick add-to-cart from
+   *  the card. Multi-variant products link through to the PDP to choose. */
+  quickAdd: { variantId: string; price: number; stock: number } | null;
 }
 
 export interface ListingResult {
@@ -46,13 +49,14 @@ export const productCardSelect = {
   ratingCount: true,
   isFeatured: true,
   images: { take: 1, orderBy: { sortOrder: "asc" }, select: { url: true, alt: true } },
-  variants: { where: { isActive: true }, select: { price: true, stock: true } },
+  variants: { where: { isActive: true }, select: { id: true, price: true, stock: true } },
 } satisfies Prisma.ProductSelect;
 
 type ProductCardRow = Prisma.ProductGetPayload<{ select: typeof productCardSelect }>;
 
 export function toProductCard(p: ProductCardRow): ProductCard {
   const prices = p.variants.map((v) => v.price ?? p.basePrice);
+  const only = p.variants.length === 1 ? p.variants[0] : null;
   return {
     id: p.id,
     title: p.title,
@@ -66,6 +70,9 @@ export function toProductCard(p: ProductCardRow): ProductCard {
     isFeatured: p.isFeatured,
     inStock: p.variants.some((v) => v.stock > 0),
     image: p.images[0] ?? null,
+    quickAdd: only
+      ? { variantId: only.id, price: only.price ?? p.basePrice, stock: only.stock }
+      : null,
   };
 }
 
