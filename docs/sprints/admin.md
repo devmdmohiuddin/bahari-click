@@ -102,9 +102,16 @@ Internal tool at `/admin`, same Next.js app, role-gated (OWNER / MANAGER / STAFF
 - **Build:** Shipping zones CRUD (fees), store settings (banner, contact, free-ship threshold), **admin user/role management**, audit-log viewer.
 - **Acceptance:** Zone fee edits reflect at checkout; roles restrict actions; audit log searchable.
 
+### A6.4 Contact inbox
+- **Build:** Inbox of submitted `ContactMessage`s (list, read/unread, mark handled, reply via tel/email link). Store contact details (phone/FB/address) used by the storefront Contact page in store settings.
+- **Acceptance:** New contact submissions appear; can mark read/handled.
+- **Deps:** Backend **F6.4**.
+
 ---
 
 ## Phase 7+ — Post-launch admin
+
+- **CMS for content pages** — make About / Delivery / Returns / Privacy / Terms admin-editable (launch them as MDX/constants first).
 
 - **Returns/exchange** workflow (reason, refund, restock effects).
 - **Sourcing & margin:** SourcingRecord entry (supplier, CNY cost, landed cost), **profit report** (revenue − landed − courier − returns).

@@ -106,6 +106,12 @@ Next.js App Router + shadcn/ui + Tailwind. Mobile-first — most buyers arrive f
 - **Build:** Loading skeletons, empty/error states, image lazy-loading, perf pass (Lighthouse mobile), accessibility pass.
 - **Acceptance:** Good mobile Lighthouse scores; no layout shift on PDP.
 
+### S6.4 Static, support & legal pages
+- **Build:** **About**, **Contact Us** (store info: phone, Facebook, address + a **contact form**), **Delivery Info** (shipping zones/times, COD explained), **Returns & Refunds**, **Privacy Policy**, **Terms & Conditions**. Brand-styled (doc 07), per-page SEO metadata, linked from the footer (footer shell from S0.1) and included in the sitemap. Content in MDX / centralized constants (admin-editable post-launch).
+- **⚠️ Dependency note:** Privacy Policy + Terms + Returns & Refunds are **required for Meta/Facebook ad approval and the Pixel (Phase 5)** — have these three live *before* enabling paid ads. Schedule them at the start of Phase 6 (or alongside Phase 5).
+- **Acceptance:** All six pages render with brand styling, are reachable from the footer, and appear in `sitemap.xml`; contact form submits successfully.
+- **Deps:** Contact form → Backend **F6.4**.
+
 ---
 
 ## Phase 7+ — Post-launch storefront

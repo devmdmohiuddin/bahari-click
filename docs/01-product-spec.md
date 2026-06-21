@@ -89,7 +89,14 @@ Full feature list for Bahari Click. Items marked **[Launch]** are required for v
 - **[Post-launch] [BD]** Delivery success rate / return rate by area & by product (key BD COD metric).
 - **[Post-launch]** Profit report (revenue − landed cost − shipping − returns).
 
-## 10. Non-functional
+## 10. Content & legal pages
+
+- **[Launch]** **About**, **Delivery Info** (zones, times, COD explained), **Contact Us** (phone/Facebook/address + contact form).
+- **[Launch]** **Returns & Refunds**, **Privacy Policy**, **Terms & Conditions** — also a **prerequisite for Meta/Facebook ad approval + Pixel**, so live before paid ads.
+- **[Launch]** All linked in footer + included in sitemap; brand-styled with per-page SEO.
+- **[Post-launch]** Admin CMS to edit page content (launch as MDX/constants first).
+
+## 11. Non-functional
 
 - **[Launch]** Mobile-first, fast on 3G/4G. Image optimization, ISR for catalog pages.
 - **[Launch]** Bangla + English ready (i18n scaffold; can launch English-first with Bangla labels where it matters).

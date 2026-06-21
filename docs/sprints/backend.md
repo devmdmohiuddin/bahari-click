@@ -136,6 +136,11 @@ Next.js Server Actions + Route Handlers + Prisma + Postgres. Organized feature-b
 - **Build:** Rate limits (OTP/review/preorder/tracking), webhook signature verification, audit-log coverage, Zod everywhere, error monitoring review.
 - **Acceptance:** Abuse endpoints throttled; no unvalidated mutation path.
 
+### F6.4 Contact message capture
+- **Build:** `ContactMessage` schema (name, phone, email?, subject, message, isRead, createdAt). Server Action to submit (Zod + rate-limit). Optional admin email/SMS notify on new message.
+- **Acceptance:** Contact form submission persists a message; spam-rate-limited.
+- **Deps:** Powers storefront **S6.4** and admin **A6.4**.
+
 ---
 
 ## Phase 7+ — Post-launch backend
