@@ -36,8 +36,15 @@ export async function generateMetadata({
   };
 }
 
-export default async function ProductPage({ params }: { params: Promise<{ slug: string }> }) {
+export default async function ProductPage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ slug: string }>;
+  searchParams: Promise<{ review?: string }>;
+}) {
   const { slug } = await params;
+  const { review } = await searchParams;
   const detail = await loadProduct(slug);
   if (!detail) notFound();
 
@@ -90,6 +97,7 @@ export default async function ProductPage({ params }: { params: Promise<{ slug: 
           specs={product.specs.map((s) => ({ id: s.id, key: s.key, value: s.value }))}
           reviews={reviews}
           breakdown={ratingBreakdown}
+          openReview={review === "1"}
         />
       </div>
 

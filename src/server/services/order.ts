@@ -535,7 +535,17 @@ export async function trackOrder(orderNumber: string, phone: string) {
       custName: true,
       trackingCode: true,
       courierName: true,
-      items: { select: { productTitle: true, variantLabel: true, qty: true, lineTotal: true } },
+      items: {
+        select: {
+          productTitle: true,
+          variantLabel: true,
+          qty: true,
+          lineTotal: true,
+          // Product slug (when the variant/product still exists) so a delivered
+          // order can deep-link to the product's review form (S5.1).
+          variant: { select: { product: { select: { slug: true } } } },
+        },
+      },
       statusHistory: {
         orderBy: { createdAt: "asc" },
         select: { status: true, note: true, createdAt: true },

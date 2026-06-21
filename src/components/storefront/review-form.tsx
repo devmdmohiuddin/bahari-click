@@ -11,8 +11,14 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { submitReviewAction } from "@/server/actions/review";
 
-export function ReviewForm({ productId }: { productId: string }) {
-  const [open, setOpen] = useState(false);
+export function ReviewForm({
+  productId,
+  defaultOpen = false,
+}: {
+  productId: string;
+  defaultOpen?: boolean;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
   const [rating, setRating] = useState(0);
   const [hover, setHover] = useState(0);
   const [name, setName] = useState("");
