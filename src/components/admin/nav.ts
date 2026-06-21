@@ -65,7 +65,6 @@ export const NAV_GROUPS: NavGroup[] = [
         href: "/admin/coupons",
         icon: Ticket,
         roles: ["OWNER", "MANAGER"],
-        comingSoon: true,
       },
       {
         label: "Reports",
@@ -79,7 +78,6 @@ export const NAV_GROUPS: NavGroup[] = [
         href: "/admin/settings",
         icon: Settings,
         roles: ["OWNER", "MANAGER"],
-        comingSoon: true,
       },
     ],
   },
