@@ -10,6 +10,7 @@ import { toast } from "@/components/ui/toast";
 import { Button } from "@/components/ui/button";
 import { StarRating } from "@/components/storefront/star-rating";
 import { ProductGallery, type GalleryImage } from "@/components/storefront/product-gallery";
+import { NotifyMeForm } from "@/components/storefront/notify-me-form";
 
 export type PdpVariant = {
   id: string;
@@ -216,40 +217,46 @@ export function ProductDetail({ product }: { product: PdpProduct }) {
           )}
         </p>
 
-        {/* Quantity + add to cart */}
-        <div className="mt-5 flex items-stretch gap-3">
-          <div className="flex items-center rounded-full border">
-            <button
-              type="button"
-              onClick={() => setQty((q) => Math.max(1, q - 1))}
-              disabled={qty <= 1}
-              aria-label="Decrease quantity"
-              className="hover:text-brand flex size-11 items-center justify-center disabled:opacity-40"
-            >
-              <Minus className="size-4" />
-            </button>
-            <span className="w-8 text-center text-sm font-semibold tabular-nums">{qty}</span>
-            <button
-              type="button"
-              onClick={() => setQty((q) => Math.min(stock || 1, q + 1))}
-              disabled={!inStock || qty >= stock}
-              aria-label="Increase quantity"
-              className="hover:text-brand flex size-11 items-center justify-center disabled:opacity-40"
-            >
-              <Plus className="size-4" />
-            </button>
-          </div>
+        {/* In stock → quantity + add to cart. Out of stock → notify-me (S3.1). */}
+        {inStock ? (
+          <div className="mt-5 flex items-stretch gap-3">
+            <div className="flex items-center rounded-full border">
+              <button
+                type="button"
+                onClick={() => setQty((q) => Math.max(1, q - 1))}
+                disabled={qty <= 1}
+                aria-label="Decrease quantity"
+                className="hover:text-brand flex size-11 items-center justify-center disabled:opacity-40"
+              >
+                <Minus className="size-4" />
+              </button>
+              <span className="w-8 text-center text-sm font-semibold tabular-nums">{qty}</span>
+              <button
+                type="button"
+                onClick={() => setQty((q) => Math.min(stock || 1, q + 1))}
+                disabled={qty >= stock}
+                aria-label="Increase quantity"
+                className="hover:text-brand flex size-11 items-center justify-center disabled:opacity-40"
+              >
+                <Plus className="size-4" />
+              </button>
+            </div>
 
-          <Button
-            size="lg"
-            onClick={handleAdd}
-            disabled={!inStock || !selected}
-            className="h-11 flex-1"
-          >
-            <ShoppingBag />
-            {inStock ? "Add to cart" : "Out of stock"}
-          </Button>
-        </div>
+            <Button size="lg" onClick={handleAdd} disabled={!selected} className="h-11 flex-1">
+              <ShoppingBag />
+              Add to cart
+            </Button>
+          </div>
+        ) : (
+          <div className="mt-5">
+            <NotifyMeForm
+              key={selected?.id ?? "none"}
+              productId={product.id}
+              variantId={selected?.id ?? null}
+              variantLabel={variantLabel}
+            />
+          </div>
+        )}
 
         {/* Trust row */}
         <div className="text-muted-foreground mt-6 flex flex-col gap-2 border-t pt-6 text-sm">
