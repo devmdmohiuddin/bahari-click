@@ -152,12 +152,62 @@ async function ensureSubcategory(categoryId: string, name: string, sortOrder: nu
 
 type DemoProduct = Omit<ProductCreateInput, "subcategoryId"> & { featured?: boolean };
 
+function defaultDescription(title: string): string {
+  return [
+    `<p><strong>${title}</strong> — picked for everyday quality and value, delivered anywhere in Bangladesh with cash on delivery.</p>`,
+    `<p>Carefully sourced and quality-checked before it ships. If it isn't right, our 7-day easy return has you covered.</p>`,
+    `<h3>Why you'll love it</h3>`,
+    `<ul><li>Durable, premium materials</li><li>Great value for the price</li><li>Fast nationwide delivery</li></ul>`,
+  ].join("");
+}
+
+function defaultSpecs(): { key: string; value: string }[] {
+  return [
+    { key: "Brand", value: "Bahari" },
+    { key: "Warranty", value: "7-day replacement" },
+    { key: "Delivery", value: "Cash on delivery, nationwide" },
+    { key: "Country of origin", value: "Imported" },
+  ];
+}
+
 async function addProduct(subcategoryId: string, input: DemoProduct) {
   const slug = slugify(input.slug ?? input.title);
   if (await db.product.findUnique({ where: { slug }, select: { id: true } })) return;
   const { featured, ...rest } = input;
-  const product = await createProduct({ ...rest, subcategoryId, isFeatured: featured ?? false });
+  const product = await createProduct({
+    description: defaultDescription(input.title),
+    specs: defaultSpecs().map((s, i) => ({ ...s, sortOrder: i })),
+    ...rest,
+    subcategoryId,
+    isFeatured: featured ?? false,
+  });
   await setProductPublished(product.id, true);
+}
+
+/** Backfill description/specs on demo products created by earlier seed runs so
+ *  PDP Description/Specifications tabs have content without a DB reset. */
+async function ensureDetails(slug: string, title: string) {
+  const p = await db.product.findUnique({
+    where: { slug },
+    select: { id: true, description: true, _count: { select: { specs: true } } },
+  });
+  if (!p) return;
+  if (!p.description || p.description.trim() === "") {
+    await db.product.update({
+      where: { id: p.id },
+      data: { description: defaultDescription(title) },
+    });
+  }
+  if (p._count.specs === 0) {
+    await db.specification.createMany({
+      data: defaultSpecs().map((s, i) => ({
+        productId: p.id,
+        key: s.key,
+        value: s.value,
+        sortOrder: i,
+      })),
+    });
+  }
 }
 
 async function seedDemoCatalog() {
@@ -323,6 +373,12 @@ async function seedDemoCatalog() {
     await addProduct(subcategoryId, product);
     if (!before) added++;
   }
+
+  // Backfill PDP details on demo products (incl. the original wallet) so the
+  // Description/Specifications tabs render even on databases seeded earlier.
+  for (const [, product] of catalog) await ensureDetails(slugify(product.title), product.title);
+  await ensureDetails(DEMO_PRODUCT_SLUG, "Classic Leather Wallet");
+
   console.info(`✔ Demo catalog enriched (${added} new products across Accessories & Gadgets)`);
 }
 
