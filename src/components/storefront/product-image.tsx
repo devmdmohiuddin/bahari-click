@@ -16,12 +16,14 @@ export function ProductImage({
   sizes,
   className,
   priority,
+  style,
 }: {
   src: string | null;
   alt: string;
   sizes?: string;
   className?: string;
   priority?: boolean;
+  style?: React.CSSProperties;
 }) {
   const [errored, setErrored] = useState(false);
 
@@ -48,6 +50,7 @@ export function ProductImage({
       priority={priority}
       onError={() => setErrored(true)}
       className={className}
+      style={style}
     />
   );
 }
