@@ -16,6 +16,44 @@ export interface DispatchResult {
   alreadyDispatched: boolean;
 }
 
+const queueSelect = {
+  id: true,
+  orderNumber: true,
+  status: true,
+  custName: true,
+  custPhone: true,
+  total: true,
+  trackingCode: true,
+  courierName: true,
+  fraudVerdict: true,
+  fraudScore: true,
+  createdAt: true,
+  zone: { select: { name: true } },
+  _count: { select: { items: true } },
+} as const;
+
+/** Orders awaiting dispatch (confirmed/packed, no consignment) and in-transit. */
+export async function listFulfillmentQueue() {
+  const [ready, inTransit] = await Promise.all([
+    db.order.findMany({
+      where: {
+        status: { in: [OrderStatus.confirmed, OrderStatus.packed] },
+        trackingCode: null,
+      },
+      orderBy: { createdAt: "asc" },
+      select: queueSelect,
+    }),
+    db.order.findMany({
+      where: { status: OrderStatus.dispatched },
+      orderBy: { updatedAt: "desc" },
+      select: queueSelect,
+    }),
+  ]);
+  return { ready, inTransit };
+}
+
+export type FulfillmentRow = Awaited<ReturnType<typeof listFulfillmentQueue>>["ready"][number];
+
 export async function dispatchOrder(
   orderId: string,
   adminId?: string | null,

@@ -5,6 +5,7 @@ import { conflict, notFound, validationError } from "@/lib/errors";
 import { normalizeBdPhone } from "@/lib/phone";
 import { EDITABLE_STATUSES, ORDER_TRANSITIONS } from "@/lib/orders";
 import { incrementCouponUsage, validateCoupon } from "@/server/services/coupon";
+import { assessFraud } from "@/server/services/fraud";
 import { sendOrderStatusSms } from "@/server/services/notifications";
 import { resolveShippingFee } from "@/server/services/shipping";
 import { placeOrderSchema, type PlaceOrderInput } from "@/server/validators/order";
@@ -482,6 +483,40 @@ export async function editOrderItems(
 }
 
 export type AdminOrderDetail = Awaited<ReturnType<typeof getOrderById>>;
+
+/** Re-run the COD fraud check for an order and persist the new verdict. */
+export async function reassessOrderFraud(orderId: string) {
+  const order = await db.order.findUnique({
+    where: { id: orderId },
+    select: { id: true, custPhone: true },
+  });
+  if (!order) throw notFound("Order not found");
+
+  const fraud = await assessFraud(order.custPhone);
+  await db.order.update({
+    where: { id: orderId },
+    data: { fraudScore: fraud.score, fraudVerdict: fraud.verdict },
+  });
+  return fraud;
+}
+
+/** Resend the lifecycle SMS for the order's current status (manual admin action). */
+export async function resendOrderSms(orderId: string) {
+  const order = await getOrderById(orderId);
+  const res = await sendOrderStatusSms(
+    {
+      orderNumber: order.orderNumber,
+      name: order.custName,
+      total: order.total,
+      trackingCode: order.trackingCode,
+      custPhone: order.custPhone,
+    },
+    order.status,
+  );
+  if (!res) return { sent: false, reason: "No SMS is defined for this status" };
+  if (res.ok === false) return { sent: false, reason: res.error };
+  return { sent: true };
+}
 
 // ── Public tracking ──────────────────────────────────────────────────────────
 
