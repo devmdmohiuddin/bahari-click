@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { OrderTracker } from "@/components/storefront/order-tracker";
 
 export const metadata: Metadata = {
-  title: "Track your order · Bahari Click",
+  title: "Track your order",
   description: "Check the status of your Bahari Click order with your order number and phone.",
 };
 

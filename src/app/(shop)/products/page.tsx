@@ -5,8 +5,9 @@ import { ListingView } from "@/components/storefront/listing-view";
 export const revalidate = 300;
 
 export const metadata: Metadata = {
-  title: "All products · Bahari Click",
+  title: "All products",
   description: "Browse all products. Cash on delivery across Bangladesh.",
+  alternates: { canonical: "/products" },
 };
 
 export default async function ProductsPage({

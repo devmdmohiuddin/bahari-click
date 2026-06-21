@@ -2,6 +2,8 @@ import type { Metadata } from "next";
 import { Geist_Mono, Hind_Siliguri, Inter, Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 
+import { SITE_DESCRIPTION, SITE_NAME, SITE_URL } from "@/lib/site";
+
 // Brand typography (docs/07-brand-guidelines.md): Plus Jakarta Sans for
 // display/headings, Inter for body/UI, Hind Siliguri for Bangla. Self-hosted
 // via next/font — no external CDN call, no layout shift, free.
@@ -28,8 +30,22 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Bahari Click",
-  description: "Quality products, delivered across Bangladesh. Cash on delivery.",
+  metadataBase: new URL(SITE_URL),
+  title: {
+    default: `${SITE_NAME} — Quality products, delivered across Bangladesh`,
+    template: `%s · ${SITE_NAME}`,
+  },
+  description: SITE_DESCRIPTION,
+  applicationName: SITE_NAME,
+  openGraph: {
+    type: "website",
+    siteName: SITE_NAME,
+    locale: "en_BD",
+    title: SITE_NAME,
+    description: SITE_DESCRIPTION,
+    url: SITE_URL,
+  },
+  twitter: { card: "summary_large_image" },
 };
 
 export default function RootLayout({

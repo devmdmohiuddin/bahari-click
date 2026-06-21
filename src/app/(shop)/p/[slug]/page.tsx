@@ -5,6 +5,7 @@ import { unstable_cache } from "next/cache";
 import { ChevronRight } from "lucide-react";
 
 import { cacheTags } from "@/lib/cache";
+import { absoluteUrl } from "@/lib/site";
 import { getProductDetailBySlug } from "@/server/services/pdp";
 import { ProductDetail, type PdpProduct } from "@/components/storefront/product-detail";
 import { ProductInfoTabs } from "@/components/storefront/product-info-tabs";
@@ -25,14 +26,23 @@ export async function generateMetadata({
 }): Promise<Metadata> {
   const { slug } = await params;
   const detail = await loadProduct(slug);
-  if (!detail) return { title: "Product not found · Bahari Click" };
+  if (!detail) return { title: "Product not found" };
 
   const { product } = detail;
   const image = product.images[0]?.url ?? product.variants[0]?.images[0]?.url;
+  const description = product.description.replace(/<[^>]+>/g, "").slice(0, 160) || product.title;
+  const canonical = `/p/${product.slug}`;
   return {
-    title: `${product.title} · Bahari Click`,
-    description: product.description.replace(/<[^>]+>/g, "").slice(0, 160) || product.title,
-    openGraph: image ? { images: [{ url: image }] } : undefined,
+    title: product.title,
+    description,
+    alternates: { canonical },
+    openGraph: {
+      type: "website",
+      title: product.title,
+      description,
+      url: canonical,
+      images: image ? [{ url: image }] : undefined,
+    },
   };
 }
 
@@ -70,8 +80,42 @@ export default async function ProductPage({
     })),
   };
 
+  // JSON-LD Product structured data for rich results (S6.2).
+  const prices = pdp.variants.map((v) => v.price);
+  const inStock = pdp.variants.some((v) => v.stock > 0);
+  const jsonLd = {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    name: product.title,
+    description: product.description.replace(/<[^>]+>/g, "").slice(0, 500) || product.title,
+    image: pdp.gallery[0]?.url ?? pdp.variants[0]?.images[0]?.url,
+    sku: product.id,
+    category: category.name,
+    offers: {
+      "@type": "AggregateOffer",
+      priceCurrency: "BDT",
+      lowPrice: prices.length ? Math.min(...prices) : product.basePrice,
+      highPrice: prices.length ? Math.max(...prices) : product.basePrice,
+      availability: inStock ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
+      url: absoluteUrl(`/p/${product.slug}`),
+    },
+    ...(product.ratingCount > 0
+      ? {
+          aggregateRating: {
+            "@type": "AggregateRating",
+            ratingValue: product.ratingAvg,
+            reviewCount: product.ratingCount,
+          },
+        }
+      : {}),
+  };
+
   return (
     <div className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       <nav className="text-muted-foreground mb-6 flex flex-wrap items-center gap-1 text-sm">
         <Link href="/" className="hover:text-brand">
           Home

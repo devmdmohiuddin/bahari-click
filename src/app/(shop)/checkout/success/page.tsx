@@ -3,7 +3,7 @@ import type { Metadata } from "next";
 import { CheckoutSuccess } from "@/components/storefront/checkout-success";
 
 export const metadata: Metadata = {
-  title: "Order confirmed · Bahari Click",
+  title: "Order confirmed",
   robots: { index: false },
 };
 

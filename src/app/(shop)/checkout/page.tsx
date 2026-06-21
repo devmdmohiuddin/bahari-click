@@ -4,7 +4,7 @@ import { listActiveZones } from "@/server/services/shipping";
 import { CheckoutForm } from "@/components/storefront/checkout-form";
 
 export const metadata: Metadata = {
-  title: "Checkout · Bahari Click",
+  title: "Checkout",
   robots: { index: false },
 };
 

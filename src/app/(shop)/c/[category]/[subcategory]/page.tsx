@@ -11,12 +11,13 @@ export async function generateMetadata({
 }: {
   params: Promise<{ category: string; subcategory: string }>;
 }): Promise<Metadata> {
-  const { subcategory } = await params;
+  const { category, subcategory } = await params;
   const sub = await getSubcategoryBySlug(subcategory);
-  if (!sub) return { title: "Not found · Bahari Click" };
+  if (!sub) return { title: "Not found" };
   return {
-    title: `${sub.name} · Bahari Click`,
+    title: sub.name,
     description: `Shop ${sub.name}. Cash on delivery across Bangladesh.`,
+    alternates: { canonical: `/c/${category}/${sub.slug}` },
   };
 }
 
