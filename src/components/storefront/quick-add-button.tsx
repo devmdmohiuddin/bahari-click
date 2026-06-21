@@ -5,6 +5,7 @@ import { Check, Plus } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { toast } from "@/components/ui/toast";
+import { trackAddToCart } from "@/lib/analytics";
 import { useCartStore, type CartItem } from "@/lib/cart-store";
 
 // Single-variant quick add. Circular brand button with a brief spark/confirm
@@ -24,6 +25,7 @@ export function QuickAddButton({
     e.preventDefault();
     e.stopPropagation();
     add(item, 1);
+    trackAddToCart({ id: item.productId, name: item.name, price: item.price, quantity: 1 });
     toast.success("Added to cart", item.name);
     setAdded(true);
     setTimeout(() => setAdded(false), 1200);

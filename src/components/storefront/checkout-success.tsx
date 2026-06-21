@@ -1,21 +1,33 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { CheckCircle2, MessageSquareText, PackageSearch } from "lucide-react";
 
 import { formatBdt } from "@/lib/format";
 import { readLastOrder, type LastOrder } from "@/lib/last-order";
+import { trackPurchase } from "@/lib/analytics";
 import { Button } from "@/components/ui/button";
 
 export function CheckoutSuccess({ orderNumber }: { orderNumber: string | null }) {
   const [last, setLast] = useState<LastOrder | null>(null);
 
   // Read the sessionStorage handoff after mount (server renders null) to keep
-  // hydration consistent.
+  // hydration consistent, and fire the Purchase pixel once (deduped with the
+  // server CAPI via metaEventId — S5.2).
+  const purchaseFired = useRef(false);
   useEffect(() => {
+    const stored = readLastOrder();
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    setLast(readLastOrder());
+    setLast(stored);
+    if (stored && !purchaseFired.current) {
+      purchaseFired.current = true;
+      trackPurchase({
+        eventId: stored.metaEventId,
+        orderNumber: stored.orderNumber,
+        value: stored.total,
+      });
+    }
   }, []);
 
   // Prefer the live query param; fall back to the stored handoff.

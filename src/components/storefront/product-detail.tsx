@@ -1,11 +1,12 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Minus, Plus, ShieldCheck, ShoppingBag, Truck } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { formatBdt } from "@/lib/format";
 import { useCartStore } from "@/lib/cart-store";
+import { trackAddToCart, trackViewContent } from "@/lib/analytics";
 import { toast } from "@/components/ui/toast";
 import { Button } from "@/components/ui/button";
 import { StarRating } from "@/components/storefront/star-rating";
@@ -52,6 +53,14 @@ export function ProductDetail({ product }: { product: PdpProduct }) {
   const [qty, setQty] = useState(1);
 
   const add = useCartStore((s) => s.add);
+
+  // Fire ViewContent once per product view (S5.2).
+  const viewed = useRef(false);
+  useEffect(() => {
+    if (viewed.current) return;
+    viewed.current = true;
+    trackViewContent({ id: product.id, name: product.title, price: first?.price ?? 0 });
+  }, [product.id, product.title, first]);
 
   const selected = useMemo(
     () =>
@@ -105,6 +114,7 @@ export function ProductDetail({ product }: { product: PdpProduct }) {
       },
       qty,
     );
+    trackAddToCart({ id: product.id, name: product.title, price, quantity: qty });
     toast.success("Added to cart", `${product.title}${variantLabel ? ` · ${variantLabel}` : ""}`);
   }
 

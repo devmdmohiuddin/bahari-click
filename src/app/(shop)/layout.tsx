@@ -1,5 +1,6 @@
 import { SiteHeader } from "@/components/storefront/site-header";
 import { SiteFooter } from "@/components/storefront/site-footer";
+import { AnalyticsScripts } from "@/components/storefront/analytics-scripts";
 import { Toaster } from "@/components/ui/toast";
 
 // Storefront shell: brand header (logo, nav, search, cart) + footer. Wraps all
@@ -11,6 +12,7 @@ export default function ShopLayout({ children }: { children: React.ReactNode }) 
       <main className="flex-1">{children}</main>
       <SiteFooter />
       <Toaster />
+      <AnalyticsScripts />
     </>
   );
 }

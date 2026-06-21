@@ -7,6 +7,8 @@ export type LastOrder = {
   total: number;
   phone: string;
   name: string;
+  /** Shared id so the client Purchase pixel dedupes against the server CAPI. */
+  metaEventId: string | null;
 };
 
 const KEY = "bahari-last-order";

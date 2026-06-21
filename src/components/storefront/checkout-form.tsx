@@ -1,12 +1,13 @@
 "use client";
 
-import { useEffect, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { CheckCircle2, Loader2, Lock, Tag, X } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { formatBdt } from "@/lib/format";
 import { saveLastOrder } from "@/lib/last-order";
+import { trackInitiateCheckout } from "@/lib/analytics";
 import { useCartStore } from "@/lib/cart-store";
 import { toast } from "@/components/ui/toast";
 import { Button } from "@/components/ui/button";
@@ -47,6 +48,17 @@ export function CheckoutForm({ zones }: { zones: Zone[] }) {
   useEffect(() => {
     if (hydrated && items.length === 0) router.replace("/cart");
   }, [hydrated, items.length, router]);
+
+  // InitiateCheckout once the cart is loaded (S5.2).
+  const checkoutTracked = useRef(false);
+  useEffect(() => {
+    if (checkoutTracked.current || !hydrated || items.length === 0) return;
+    checkoutTracked.current = true;
+    trackInitiateCheckout(
+      items.reduce((s, i) => s + i.price * i.qty, 0),
+      items.reduce((n, i) => n + i.qty, 0),
+    );
+  }, [hydrated, items]);
 
   const subtotal = items.reduce((sum, i) => sum + i.price * i.qty, 0);
   const zone = zones.find((z) => z.id === zoneId) ?? null;
@@ -109,6 +121,7 @@ export function CheckoutForm({ zones }: { zones: Zone[] }) {
           total: res.data.total,
           phone: phone.trim(),
           name: name.trim(),
+          metaEventId: res.data.metaEventId,
         });
         clear();
         router.push(`/checkout/success?o=${encodeURIComponent(res.data.orderNumber)}`);
