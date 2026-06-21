@@ -9,9 +9,10 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import type { ProductSort } from "@/server/validators/catalog";
 
-const SORT_OPTIONS: { value: ProductSort; label: string }[] = [
+export type SortOption = { value: string; label: string };
+
+const LISTING_SORT_OPTIONS: SortOption[] = [
   { value: "newest", label: "Newest" },
   { value: "best_selling", label: "Best selling" },
   { value: "price_asc", label: "Price: low to high" },
@@ -19,7 +20,13 @@ const SORT_OPTIONS: { value: ProductSort; label: string }[] = [
 ];
 
 // URL-synced sort. Changing sort resets to page 1 so results stay coherent.
-export function SortSelect({ value }: { value: ProductSort }) {
+export function SortSelect({
+  value,
+  options = LISTING_SORT_OPTIONS,
+}: {
+  value: string;
+  options?: SortOption[];
+}) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -37,7 +44,7 @@ export function SortSelect({ value }: { value: ProductSort }) {
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
-        {SORT_OPTIONS.map((o) => (
+        {options.map((o) => (
           <SelectItem key={o.value} value={o.value}>
             {o.label}
           </SelectItem>

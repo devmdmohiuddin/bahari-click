@@ -73,8 +73,8 @@ export async function ListingView({
           <Pagination
             page={result.page}
             totalPages={result.totalPages}
-            basePath={basePath}
-            sort={sort}
+            pathname={basePath}
+            params={{ sort: sort !== "newest" ? sort : undefined }}
           />
         </div>
       )}

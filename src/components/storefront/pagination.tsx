@@ -2,7 +2,6 @@ import Link from "next/link";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 import { cn } from "@/lib/utils";
-import type { ProductSort } from "@/server/validators/catalog";
 
 // Build a compact page window: 1 … (p-1) p (p+1) … last.
 function pageWindow(page: number, total: number): (number | "…")[] {
@@ -20,22 +19,25 @@ function pageWindow(page: number, total: number): (number | "…")[] {
 export function Pagination({
   page,
   totalPages,
-  basePath,
-  sort,
+  pathname,
+  params = {},
 }: {
   page: number;
   totalPages: number;
-  basePath: string;
-  sort: ProductSort;
+  pathname: string;
+  /** Query params (filters/sort) to preserve across pages, excluding `page`. */
+  params?: Record<string, string | undefined>;
 }) {
   if (totalPages <= 1) return null;
 
   const href = (p: number) => {
-    const params = new URLSearchParams();
-    if (sort !== "newest") params.set("sort", sort);
-    if (p > 1) params.set("page", String(p));
-    const qs = params.toString();
-    return qs ? `${basePath}?${qs}` : basePath;
+    const sp = new URLSearchParams();
+    for (const [k, v] of Object.entries(params)) {
+      if (v && k !== "page") sp.set(k, v);
+    }
+    if (p > 1) sp.set("page", String(p));
+    const qs = sp.toString();
+    return qs ? `${pathname}?${qs}` : pathname;
   };
 
   const linkCls =
