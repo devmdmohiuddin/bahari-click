@@ -17,4 +17,5 @@ export const RATE_LIMITS = {
   couponValidate: { limit: 20, windowSec: HOUR }, // per IP
   search: { limit: 120, windowSec: HOUR }, // per IP
   smsPerRecipient: { limit: 20, windowSec: HOUR }, // per phone
+  contactSubmit: { limit: 5, windowSec: HOUR }, // per IP
 } satisfies Record<string, RateLimitPolicy>;

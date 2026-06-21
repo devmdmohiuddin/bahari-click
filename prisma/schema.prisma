@@ -315,6 +315,25 @@ model SmsLog {
   @@map("sms_log")
 }
 
+// ─── Contact messages ────────────────────────────────────────────────────────
+// Storefront contact-form submissions (support/enquiries). Read in the admin
+// inbox. Powers storefront S6.4 and admin A6.4.
+
+model ContactMessage {
+  id      String  @id @default(cuid())
+  name    String
+  phone   String // +8801XXXXXXXXX
+  email   String?
+  subject String
+  message String  @db.Text
+  isRead  Boolean @default(false)
+
+  createdAt DateTime @default(now())
+
+  @@index([isRead, createdAt])
+  @@map("contact_message")
+}
+
 model RateLimit {
   key     String   @id // e.g. "review:create:<ip>"
   count   Int      @default(0)
