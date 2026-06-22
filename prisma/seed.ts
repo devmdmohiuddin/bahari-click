@@ -11,6 +11,7 @@ import {
 } from "../src/server/services/product";
 import type { ProductCreateInput } from "../src/server/validators/catalog";
 import { createReview, setReviewApproved } from "../src/server/services/review";
+import { createCampaign, getCampaignBySlug } from "../src/server/services/campaign";
 
 // Seed scaffold. Idempotent. Provisions the first OWNER admin so /admin is
 // reachable in dev, plus a small demo catalog so the storefront has something
@@ -397,11 +398,59 @@ async function seedShippingZones() {
   console.info("✔ Created shipping zones (Inside/Sub/Outside Dhaka)");
 }
 
+async function seedCampaigns() {
+  // Flash sale (3-day window) over a curated product set.
+  if (!(await getCampaignBySlug("eid-flash-sale"))) {
+    await createCampaign({
+      title: "Eid Flash Sale",
+      slug: "eid-flash-sale",
+      type: "flash",
+      endsAt: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
+      isActive: true,
+      config: {
+        subtitle: "Limited-time deals on top picks — grab them before they’re gone.",
+        couponCode: "EID10",
+        productSlugs: [
+          "polarized-aviator-sunglasses",
+          "wireless-anc-earbuds-pro",
+          "65w-gan-fast-charger",
+          "amoled-smartwatch",
+          "genuine-leather-belt",
+          "10000mah-power-bank",
+        ],
+      },
+    });
+    console.info("✔ Created demo flash campaign: /campaigns/eid-flash-sale");
+  }
+
+  // Single-product FB-ad landing page.
+  if (!(await getCampaignBySlug("smartwatch-offer"))) {
+    await createCampaign({
+      title: "AMOLED Smartwatch — Special Offer",
+      slug: "smartwatch-offer",
+      type: "landing",
+      isActive: true,
+      config: {
+        productSlug: "amoled-smartwatch",
+        subtitle: "Crisp AMOLED display, fitness tracking, and all-day battery.",
+        benefits: [
+          "Cash on delivery",
+          "7-day easy returns",
+          "Nationwide delivery",
+          "1-year warranty",
+        ],
+      },
+    });
+    console.info("✔ Created demo landing campaign: /campaigns/smartwatch-offer");
+  }
+}
+
 async function main() {
   console.info("🌱 Seeding…");
   await seedOwner();
   await seedCatalog();
   await seedDemoCatalog();
+  await seedCampaigns();
   await seedReviews();
   await seedShippingZones();
 

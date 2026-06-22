@@ -119,3 +119,18 @@ export async function listProducts(query: ListingQuery): Promise<ListingResult> 
 
   return { items, total, page, pageSize, totalPages: Math.max(1, Math.ceil(total / pageSize)) };
 }
+
+/** Resolve published products by slug, preserving the requested order. Used by
+ *  campaign/flash-sale pages whose product set is curated in the admin. */
+export async function getProductCardsBySlugs(slugs: string[]): Promise<ProductCard[]> {
+  if (slugs.length === 0) return [];
+  const rows = await db.product.findMany({
+    where: { isPublished: true, slug: { in: slugs } },
+    select: productCardSelect,
+  });
+  const bySlug = new Map(rows.map((r) => [r.slug, r]));
+  return slugs.flatMap((s) => {
+    const row = bySlug.get(s);
+    return row ? [toProductCard(row)] : [];
+  });
+}
