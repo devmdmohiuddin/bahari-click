@@ -6,6 +6,8 @@ import { ChevronRight } from "lucide-react";
 
 import { cacheTags } from "@/lib/cache";
 import { absoluteUrl } from "@/lib/site";
+import { getSession } from "@/server/auth-session";
+import { isWishlisted } from "@/server/services/wishlist";
 import { getProductDetailBySlug } from "@/server/services/pdp";
 import { ProductDetail, type PdpProduct } from "@/components/storefront/product-detail";
 import { ProductInfoTabs } from "@/components/storefront/product-info-tabs";
@@ -61,6 +63,9 @@ export default async function ProductPage({
 
   const { product, related, reviews, ratingBreakdown } = detail;
   const { category } = product.subcategory;
+
+  const session = await getSession();
+  const wishlisted = session ? await isWishlisted(session.user.id, product.id) : false;
 
   const pdp: PdpProduct = {
     id: product.id,
@@ -133,7 +138,7 @@ export default async function ProductPage({
         <span className="text-foreground line-clamp-1 font-medium">{product.title}</span>
       </nav>
 
-      <ProductDetail product={pdp} />
+      <ProductDetail product={pdp} initialWishlisted={wishlisted} />
 
       <div className="mt-12">
         <ProductInfoTabs

@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Menu } from "lucide-react";
+import { Menu, User } from "lucide-react";
 
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -62,7 +62,16 @@ export function SiteHeader() {
             <SearchBar />
           </div>
 
-          <CartButton className="ml-auto md:ml-2" />
+          <div className="ml-auto flex items-center gap-1 md:ml-2">
+            <Link
+              href="/account"
+              aria-label="My account"
+              className="hover:bg-muted flex size-10 items-center justify-center rounded-full transition-colors"
+            >
+              <User className="size-5.5" />
+            </Link>
+            <CartButton />
+          </div>
         </div>
 
         {/* Mobile search row */}

@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/button";
 import { StarRating } from "@/components/storefront/star-rating";
 import { ProductGallery, type GalleryImage } from "@/components/storefront/product-gallery";
 import { NotifyMeForm } from "@/components/storefront/notify-me-form";
+import { WishlistButton } from "@/components/storefront/wishlist-button";
 
 export type PdpVariant = {
   id: string;
@@ -40,7 +41,13 @@ function uniqueOrdered(values: (string | null)[]): string[] {
   return out;
 }
 
-export function ProductDetail({ product }: { product: PdpProduct }) {
+export function ProductDetail({
+  product,
+  initialWishlisted = false,
+}: {
+  product: PdpProduct;
+  initialWishlisted?: boolean;
+}) {
   const { variants } = product;
   const colors = useMemo(() => uniqueOrdered(variants.map((v) => v.color)), [variants]);
   const sizes = useMemo(() => uniqueOrdered(variants.map((v) => v.size)), [variants]);
@@ -123,9 +130,16 @@ export function ProductDetail({ product }: { product: PdpProduct }) {
       <ProductGallery images={galleryImages} title={product.title} />
 
       <div className="flex flex-col">
-        <h1 className="font-heading text-2xl font-bold tracking-tight sm:text-3xl">
-          {product.title}
-        </h1>
+        <div className="flex items-start justify-between gap-3">
+          <h1 className="font-heading text-2xl font-bold tracking-tight sm:text-3xl">
+            {product.title}
+          </h1>
+          <WishlistButton
+            productId={product.id}
+            initialWishlisted={initialWishlisted}
+            className="shrink-0"
+          />
+        </div>
 
         <div className="mt-3 flex flex-wrap items-center gap-x-4 gap-y-1">
           {product.ratingCount > 0 && (
