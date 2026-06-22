@@ -2,6 +2,7 @@ import {
   BarChart3,
   Boxes,
   ClipboardList,
+  Coins,
   FolderTree,
   Inbox,
   LayoutDashboard,
@@ -74,6 +75,12 @@ export const NAV_GROUPS: NavGroup[] = [
         label: "Reports",
         href: "/admin/reports",
         icon: BarChart3,
+        roles: ["OWNER", "MANAGER"],
+      },
+      {
+        label: "Sourcing",
+        href: "/admin/sourcing",
+        icon: Coins,
         roles: ["OWNER", "MANAGER"],
       },
       {

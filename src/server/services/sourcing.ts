@@ -46,6 +46,31 @@ export async function listSourcingForProduct(productId: string) {
   return db.sourcingRecord.findMany({ where: { productId }, orderBy: { purchasedAt: "desc" } });
 }
 
+/** Recent sourcing batches across all products, for the admin sourcing table. */
+export async function listRecentSourcing(limit = 50) {
+  return db.sourcingRecord.findMany({
+    orderBy: { purchasedAt: "desc" },
+    take: limit,
+    include: { product: { select: { title: true } } },
+  });
+}
+
+/**
+ * Profit report for an explicit (optional) date range. Defaults to the last 30
+ * days and echoes the resolved range as yyyy-mm-dd for the filter inputs. Date
+ * math lives here, not in the RSC.
+ */
+export async function getProfitReport(fromIso?: string, toIso?: string) {
+  const to = toIso ? new Date(`${toIso}T23:59:59.999`) : new Date();
+  const from = fromIso ? new Date(`${fromIso}T00:00:00`) : new Date(Date.now() - 30 * 86_400_000);
+  const report = await profitReport(from, to);
+  return {
+    ...report,
+    fromInput: from.toISOString().slice(0, 10),
+    toInput: to.toISOString().slice(0, 10),
+  };
+}
+
 /** Latest landed cost per product, as a map. */
 async function latestLandedCosts(): Promise<Map<string, number>> {
   const rows = await db.$queryRaw<{ productId: string; landedCostBDT: number }[]>(Prisma.sql`
