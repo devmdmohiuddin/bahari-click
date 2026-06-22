@@ -10,6 +10,7 @@ import { getProductDetailBySlug } from "@/server/services/pdp";
 import { ProductDetail, type PdpProduct } from "@/components/storefront/product-detail";
 import { ProductInfoTabs } from "@/components/storefront/product-info-tabs";
 import { RelatedProducts } from "@/components/storefront/related-products";
+import { RecentlyViewed, RecordRecentlyViewed } from "@/components/storefront/recently-viewed";
 
 // Cache the PDP read tagged by product slug so admin edits / review approvals
 // (which call revalidateTags(productSlug)) refresh this page on demand.
@@ -146,6 +147,17 @@ export default async function ProductPage({
       </div>
 
       <RelatedProducts products={related} />
+      <RecentlyViewed excludeId={product.id} />
+
+      <RecordRecentlyViewed
+        item={{
+          id: product.id,
+          slug: product.slug,
+          title: product.title,
+          image: pdp.gallery[0]?.url ?? pdp.variants[0]?.images[0]?.url ?? null,
+          price: prices.length ? Math.min(...prices) : product.basePrice,
+        }}
+      />
     </div>
   );
 }

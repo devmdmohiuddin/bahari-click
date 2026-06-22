@@ -13,3 +13,10 @@ export const SITE_DESCRIPTION = "Quality products, delivered across Bangladesh. 
 export function absoluteUrl(path = ""): string {
   return `${SITE_URL}${path.startsWith("/") ? path : `/${path}`}`;
 }
+
+// Optional support channels (floating chat button). Digits only for WhatsApp.
+export const WHATSAPP_NUMBER = (process.env.NEXT_PUBLIC_WHATSAPP_NUMBER || "").replace(
+  /[^\d]/g,
+  "",
+);
+export const MESSENGER_URL = process.env.NEXT_PUBLIC_MESSENGER_URL || "";
