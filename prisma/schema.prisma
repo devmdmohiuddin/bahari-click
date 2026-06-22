@@ -52,6 +52,8 @@ model User {
   stockAdjustments   StockAdjustment[]
   orders             Order[]
   orderStatusChanges OrderStatusHistory[]
+  addresses          Address[]
+  wishlist           Wishlist[]
 
   @@index([role])
   @@map("user")
@@ -195,11 +197,12 @@ model Product {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  variants  Variant[]
-  images    ProductImage[]
-  specs     Specification[]
-  reviews   Review[]
-  preOrders PreOrderRequest[]
+  variants     Variant[]
+  images       ProductImage[]
+  specs        Specification[]
+  reviews      Review[]
+  preOrders    PreOrderRequest[]
+  wishlistedBy Wishlist[]
 
   @@index([subcategoryId, isPublished])
   @@index([isPublished, isFeatured])
@@ -361,6 +364,46 @@ model Payment {
   @@map("payment")
 }
 
+// ─── Accounts [post-launch] ──────────────────────────────────────────────────
+// Saved addresses + wishlist for logged-in customers. Order history is a query
+// on Order.customerId (no new table).
+
+model Address {
+  id         String @id @default(cuid())
+  customerId String
+  customer   User   @relation(fields: [customerId], references: [id], onDelete: Cascade)
+
+  name      String
+  phone     String
+  line1     String
+  area      String?
+  city      String?
+  zoneId    String?
+  zone      ShippingZone? @relation(fields: [zoneId], references: [id], onDelete: SetNull)
+  note      String?
+  isDefault Boolean       @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([customerId])
+  @@map("address")
+}
+
+model Wishlist {
+  id         String  @id @default(cuid())
+  customerId String
+  customer   User    @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  productId  String
+  product    Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([customerId, productId])
+  @@index([customerId])
+  @@map("wishlist")
+}
+
 model RateLimit {
   key     String   @id // e.g. "review:create:<ip>"
   count   Int      @default(0)
@@ -465,7 +508,8 @@ model ShippingZone {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  orders Order[]
+  orders    Order[]
+  addresses Address[]
 
   @@index([isActive, sortOrder])
   @@map("shipping_zone")
