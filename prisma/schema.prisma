@@ -404,6 +404,36 @@ model Wishlist {
   @@map("wishlist")
 }
 
+// ─── Returns [post-launch] ───────────────────────────────────────────────────
+// Return request against a delivered order. On completion the order moves to
+// `returned` (stock restocked), soldCountReal is decremented, and any online
+// payment is marked refunded.
+
+enum ReturnStatus {
+  requested
+  approved
+  rejected
+  completed
+}
+
+model Return {
+  id      String @id @default(cuid())
+  orderId String
+  order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  reason       String
+  status       ReturnStatus @default(requested)
+  refundAmount Int?
+  note         String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([orderId])
+  @@index([status])
+  @@map("return")
+}
+
 model RateLimit {
   key     String   @id // e.g. "review:create:<ip>"
   count   Int      @default(0)
@@ -616,6 +646,7 @@ model Order {
   items         OrderItem[]
   statusHistory OrderStatusHistory[]
   payments      Payment[]
+  returns       Return[]
 
   @@index([status])
   @@index([custPhone])
