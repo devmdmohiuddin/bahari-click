@@ -23,7 +23,14 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const staticEntries: MetadataRoute.Sitemap = [
     { url: absoluteUrl("/"), lastModified: now, changeFrequency: "daily", priority: 1 },
     { url: absoluteUrl("/products"), lastModified: now, changeFrequency: "daily", priority: 0.8 },
+    { url: absoluteUrl("/contact"), lastModified: now, changeFrequency: "yearly", priority: 0.4 },
     { url: absoluteUrl("/track"), lastModified: now, changeFrequency: "monthly", priority: 0.3 },
+    ...["/about", "/delivery", "/returns", "/privacy", "/terms"].map((p) => ({
+      url: absoluteUrl(p),
+      lastModified: now,
+      changeFrequency: "yearly" as const,
+      priority: 0.2,
+    })),
   ];
 
   const categoryEntries: MetadataRoute.Sitemap = tree.flatMap((c) => [
