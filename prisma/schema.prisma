@@ -334,6 +334,33 @@ model ContactMessage {
   @@map("contact_message")
 }
 
+// ─── Payments [post-launch] ──────────────────────────────────────────────────
+// Online payments via SSLCommerz (sandbox in dev). COD needs no Payment row;
+// this supports advance-charge / fully-prepaid online orders. See docs/02-tech-stack.md.
+
+model Payment {
+  id      String @id @default(cuid())
+  orderId String
+  order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  provider      String // "sslcommerz" | "mock"
+  transactionId String        @unique // our tran_id sent to the gateway
+  amount        Int // whole BDT
+  status        PaymentStatus @default(pending)
+
+  gatewayValId    String? // val_id returned by SSLCommerz
+  gatewaySessionId String?
+  cardType        String?
+  raw             Json? // last gateway payload, for audit/debugging
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([orderId])
+  @@index([status])
+  @@map("payment")
+}
+
 model RateLimit {
   key     String   @id // e.g. "review:create:<ip>"
   count   Int      @default(0)
@@ -492,6 +519,15 @@ enum OrderStatus {
 
 enum PaymentMethod {
   COD
+  SSLCOMMERZ
+}
+
+enum PaymentStatus {
+  pending
+  success
+  failed
+  cancelled
+  refunded
 }
 
 model Order {
@@ -535,6 +571,7 @@ model Order {
 
   items         OrderItem[]
   statusHistory OrderStatusHistory[]
+  payments      Payment[]
 
   @@index([status])
   @@index([custPhone])
