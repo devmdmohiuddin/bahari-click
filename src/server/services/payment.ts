@@ -144,3 +144,33 @@ export async function markPaymentFailed(
 export async function getPaymentByTransactionId(transactionId: string) {
   return db.payment.findUnique({ where: { transactionId } });
 }
+
+/** Payments newest-first (optionally filtered by status) for the admin reconciliation view. */
+export async function listPayments(status?: PaymentStatus, limit = 200) {
+  return db.payment.findMany({
+    where: status ? { status } : undefined,
+    orderBy: { createdAt: "desc" },
+    take: limit,
+    include: { order: { select: { orderNumber: true, custPhone: true, total: true } } },
+  });
+}
+
+export interface PaymentSummary {
+  status: PaymentStatus;
+  count: number;
+  amount: number;
+}
+
+/** Count + amount grouped by payment status, for reconciliation totals. */
+export async function paymentSummary(): Promise<PaymentSummary[]> {
+  const grouped = await db.payment.groupBy({
+    by: ["status"],
+    _count: { _all: true },
+    _sum: { amount: true },
+  });
+  return grouped.map((g) => ({
+    status: g.status,
+    count: g._count._all,
+    amount: g._sum.amount ?? 0,
+  }));
+}

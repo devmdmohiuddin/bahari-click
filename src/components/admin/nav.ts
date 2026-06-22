@@ -3,6 +3,7 @@ import {
   Boxes,
   ClipboardList,
   Coins,
+  CreditCard,
   FolderTree,
   Inbox,
   LayoutDashboard,
@@ -88,6 +89,12 @@ export const NAV_GROUPS: NavGroup[] = [
         label: "Sourcing",
         href: "/admin/sourcing",
         icon: Coins,
+        roles: ["OWNER", "MANAGER"],
+      },
+      {
+        label: "Payments",
+        href: "/admin/payments",
+        icon: CreditCard,
         roles: ["OWNER", "MANAGER"],
       },
       {
