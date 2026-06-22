@@ -151,6 +151,7 @@
   }
   html {
     @apply font-sans;
+    scroll-behavior: smooth;
   }
   h1,
   h2,
@@ -159,5 +160,34 @@
   h5,
   h6 {
     @apply font-heading tracking-tight;
+  }
+  /* On-brand text selection. */
+  ::selection {
+    background-color: color-mix(in oklch, var(--brand) 22%, transparent);
+    color: var(--foreground);
+  }
+}
+
+@layer components {
+  /* Elevated surface that lifts on hover — used for product/category cards. */
+  .card-lift {
+    @apply transition-all duration-300 ease-out hover:-translate-y-1 hover:shadow-xl;
+  }
+
+  /* Section heading with a short brand accent bar underneath. */
+  .heading-accent {
+    @apply relative font-bold tracking-tight;
+  }
+  .heading-accent::after {
+    content: "";
+    @apply bg-brand mt-2 block h-1 w-10 rounded-full;
+  }
+}
+
+/* Hide scrollbars on horizontal carousels while keeping them scrollable. */
+@utility no-scrollbar {
+  scrollbar-width: none;
+  &::-webkit-scrollbar {
+    display: none;
   }
 }

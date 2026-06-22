@@ -83,7 +83,7 @@ export default async function SearchPage({
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6 lg:px-8">
-      <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">
+      <h1 className="heading-accent text-2xl sm:text-3xl">
         {q ? <>Results for “{q}”</> : "All products"}
       </h1>
 

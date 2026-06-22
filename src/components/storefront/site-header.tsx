@@ -20,8 +20,8 @@ export function SiteHeader() {
   return (
     <>
       {/* Announcement bar — on-brand, reinforces the COD promise. */}
-      <div className="bg-brand text-brand-foreground text-center text-xs font-medium tracking-wide">
-        <p className="px-4 py-2">🚚 Free returns · Cash on delivery across Bangladesh</p>
+      <div className="from-brand to-brand-hover text-brand-foreground bg-linear-to-r text-center text-xs font-medium tracking-wide">
+        <p className="px-4 py-2">🚚 Cash on delivery nationwide · 7-day easy returns</p>
       </div>
 
       <header className="bg-background/85 sticky top-0 z-40 border-b backdrop-blur">
