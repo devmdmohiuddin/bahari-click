@@ -197,12 +197,13 @@ model Product {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  variants     Variant[]
-  images       ProductImage[]
-  specs        Specification[]
-  reviews      Review[]
-  preOrders    PreOrderRequest[]
-  wishlistedBy Wishlist[]
+  variants        Variant[]
+  images          ProductImage[]
+  specs           Specification[]
+  reviews         Review[]
+  preOrders       PreOrderRequest[]
+  wishlistedBy    Wishlist[]
+  sourcingRecords SourcingRecord[]
 
   @@index([subcategoryId, isPublished])
   @@index([isPublished, isFeatured])
@@ -432,6 +433,29 @@ model Return {
   @@index([orderId])
   @@index([status])
   @@map("return")
+}
+
+// ─── Sourcing & margin [post-launch] ─────────────────────────────────────────
+// China-sourcing purchase records for landed-cost / profit analytics. Costs are
+// whole units: unitCostCNY in CNY, shippingCost + landedCostBDT in BDT.
+
+model SourcingRecord {
+  id        String  @id @default(cuid())
+  productId String
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  supplierName String
+  supplierUrl  String?
+  unitCostCNY  Int // per-unit supplier cost in CNY
+  shippingCost Int // batch shipping in BDT
+  batchQty     Int
+  landedCostBDT Int // computed per-unit landed cost in BDT
+
+  purchasedAt DateTime @default(now())
+  createdAt   DateTime @default(now())
+
+  @@index([productId, purchasedAt])
+  @@map("sourcing_record")
 }
 
 model RateLimit {
