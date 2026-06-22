@@ -6,6 +6,7 @@ import {
   FolderTree,
   Inbox,
   LayoutDashboard,
+  Megaphone,
   Package,
   RotateCcw,
   Settings,
@@ -69,6 +70,12 @@ export const NAV_GROUPS: NavGroup[] = [
         label: "Coupons",
         href: "/admin/coupons",
         icon: Ticket,
+        roles: ["OWNER", "MANAGER"],
+      },
+      {
+        label: "Campaigns",
+        href: "/admin/campaigns",
+        icon: Megaphone,
         roles: ["OWNER", "MANAGER"],
       },
       {
