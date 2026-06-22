@@ -3,6 +3,7 @@ import {
   Boxes,
   ClipboardList,
   FolderTree,
+  Inbox,
   LayoutDashboard,
   Package,
   Settings,
@@ -55,6 +56,7 @@ export const NAV_GROUPS: NavGroup[] = [
       { label: "Fulfillment", href: "/admin/fulfillment", icon: Truck },
       { label: "Inventory", href: "/admin/inventory", icon: Boxes },
       { label: "Pre-orders", href: "/admin/preorders", icon: ClipboardList },
+      { label: "Inbox", href: "/admin/contact", icon: Inbox },
     ],
   },
   {
