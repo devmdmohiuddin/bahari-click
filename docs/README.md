@@ -16,6 +16,7 @@ E-commerce storefront for products sourced from China and sold in the Bangladesh
 | [05 — BD Market Playbook](./05-bd-market.md) | Couriers, fraud check, shipping zones, SMS, FB pixel |
 | [06 — Cost & Free Tiers](./06-cost-and-free-tiers.md) | What's free, free-tier limits, zero-cost dev setup |
 | [07 — Brand Guidelines](./07-brand-guidelines.md) | Logo, colors, typography, shadcn tokens, brand voice |
+| [08 — AI Features](./08-ai-features.md) | Where AI helps users, cost shapes, adapter, sprint slots |
 | [Sprints — Overview](./sprints/README.md) | Phased roadmap across all three surfaces |
 | [Sprints — Backend](./sprints/backend.md) | Backend sprints, feature by feature |
 | [Sprints — Frontend](./sprints/frontend.md) | Storefront sprints, feature by feature |
