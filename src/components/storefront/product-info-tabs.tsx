@@ -4,9 +4,11 @@ import { useEffect, useRef } from "react";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import type { RatingBreakdown } from "@/server/services/review";
+import type { ReviewSummary as ReviewSummaryData } from "@/server/integrations/ai";
 import { RatingSummary } from "@/components/storefront/rating-summary";
 import { ReviewForm } from "@/components/storefront/review-form";
 import { ReviewList, type StorefrontReview } from "@/components/storefront/review-list";
+import { ReviewSummary } from "@/components/storefront/review-summary";
 
 type Spec = { id: string; key: string; value: string };
 
@@ -16,6 +18,7 @@ export function ProductInfoTabs({
   specs,
   reviews,
   breakdown,
+  reviewSummary = null,
   openReview = false,
 }: {
   productId: string;
@@ -23,6 +26,8 @@ export function ProductInfoTabs({
   specs: Spec[];
   reviews: StorefrontReview[];
   breakdown: RatingBreakdown;
+  /** AI-2 cached pros/cons summary; null when there aren't enough reviews. */
+  reviewSummary?: ReviewSummaryData | null;
   /** Arrived via ?review=1 (e.g. delivered-order SMS) — focus the reviews tab. */
   openReview?: boolean;
 }) {
@@ -72,6 +77,7 @@ export function ProductInfoTabs({
 
         <TabsContent value="reviews" className="space-y-6 pt-6">
           <RatingSummary breakdown={breakdown} />
+          {reviewSummary && <ReviewSummary summary={reviewSummary} />}
           <ReviewForm productId={productId} defaultOpen={openReview} />
           <ReviewList reviews={reviews} />
         </TabsContent>

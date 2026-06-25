@@ -51,6 +51,9 @@ export const productCreateSchema = z.object({
   description: z.string().default(""),
   basePrice: taka,
   compareAtPrice: taka.optional().nullable(),
+  // AI-5 SEO meta (optional; blank → falls back to title/description on the PDP).
+  seoTitle: z.string().trim().max(70).optional().nullable(),
+  seoDescription: z.string().trim().max(180).optional().nullable(),
   isFeatured: z.boolean().default(false),
   soldCountBoost: z.number().int().nonnegative().default(0),
   variants: z.array(variantInputSchema).min(1, "At least one variant is required"),

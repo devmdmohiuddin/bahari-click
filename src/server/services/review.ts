@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { cacheTags, revalidateTags } from "@/lib/cache";
 import { notFound, validationError } from "@/lib/errors";
+import { refreshReviewSummarySafe } from "@/server/services/ai";
 import { createReviewSchema, type CreateReviewInput } from "@/server/validators/review";
 
 // Reviews: create (hidden pending moderation), list approved + breakdown,
@@ -111,6 +112,8 @@ export async function setReviewApproved(reviewId: string, isApproved: boolean) {
 
   await db.review.update({ where: { id: reviewId }, data: { isApproved } });
   await recomputeAggregates(review.productId);
+  // AI-2: refresh the cached pros/cons summary now the approved set changed.
+  await refreshReviewSummarySafe(review.productId);
 
   revalidateTags(
     cacheTags.products,
@@ -129,6 +132,7 @@ export async function deleteReview(reviewId: string) {
 
   await db.review.delete({ where: { id: reviewId } });
   await recomputeAggregates(review.productId);
+  await refreshReviewSummarySafe(review.productId);
 
   revalidateTags(
     cacheTags.products,
@@ -168,7 +172,10 @@ export async function approveReviews(ids: string[]) {
   });
 
   const productIds = [...new Set(reviews.map((r) => r.productId))];
-  for (const pid of productIds) await recomputeAggregates(pid);
+  for (const pid of productIds) {
+    await recomputeAggregates(pid);
+    await refreshReviewSummarySafe(pid);
+  }
 
   const tags = new Set<string>([cacheTags.products]);
   for (const r of reviews) {

@@ -194,6 +194,19 @@ model Product {
   ratingAvg   Float @default(0) // denormalized from approved reviews
   ratingCount Int   @default(0)
 
+  // AI-2: cached review summary { sentiment, pros[], cons[] } + when generated.
+  // Regenerated as approved reviews accumulate; null until first generation.
+  reviewSummary   Json?
+  reviewSummaryAt DateTime?
+
+  // AI-5: AI-drafted SEO meta (admin reviews/edits; falls back to title/desc).
+  seoTitle       String?
+  seoDescription String?
+
+  // AI-3 / AI-6: cached embedding vector (number[]) for semantic search +
+  // recommendations. In-app cosine similarity — no pgvector needed (free tier).
+  embedding Json?
+
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 

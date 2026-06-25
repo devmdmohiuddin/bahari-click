@@ -1,5 +1,6 @@
 import { db } from "@/lib/db";
 import { withDisplaySold } from "@/server/services/product";
+import { parseReviewSummary, recommendProducts } from "@/server/services/ai";
 import { productCardSelect, toProductCard, type ProductCard } from "@/server/services/listing";
 import {
   getRatingBreakdown,
@@ -31,7 +32,7 @@ export async function getProductDetailBySlug(slug: string) {
   });
   if (!product) return null;
 
-  const [relatedRows, reviews, ratingBreakdown] = await Promise.all([
+  const [relatedRows, reviews, ratingBreakdown, recommended] = await Promise.all([
     db.product.findMany({
       where: {
         isPublished: true,
@@ -44,15 +45,23 @@ export async function getProductDetailBySlug(slug: string) {
     }),
     listApprovedReviews(product.id),
     getRatingBreakdown(product.id),
+    // AI-6: cross-category "you may also like" by embedding similarity.
+    recommendProducts(product.id, RELATED_LIMIT),
   ]);
 
   const related: ProductCard[] = relatedRows.map(toProductCard);
+  // Drop recommendations already shown in the same-subcategory related row.
+  const relatedIds = new Set(related.map((p) => p.id));
+  const recommends = recommended.filter((p) => !relatedIds.has(p.id));
 
   return {
     product: withDisplaySold(product),
     related,
+    recommended: recommends,
     reviews,
     ratingBreakdown,
+    // AI-2: cached pros/cons summary (null until enough approved reviews exist).
+    reviewSummary: parseReviewSummary(product.reviewSummary),
   };
 }
 

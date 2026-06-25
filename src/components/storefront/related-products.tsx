@@ -6,7 +6,13 @@ import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { ProductCard as ProductCardData } from "@/server/services/listing";
 import { ProductCard } from "@/components/storefront/product-card";
 
-export function RelatedProducts({ products }: { products: ProductCardData[] }) {
+export function RelatedProducts({
+  products,
+  title = "You may also like",
+}: {
+  products: ProductCardData[];
+  title?: string;
+}) {
   const scroller = useRef<HTMLDivElement>(null);
 
   if (products.length === 0) return null;
@@ -20,7 +26,7 @@ export function RelatedProducts({ products }: { products: ProductCardData[] }) {
   return (
     <section className="mt-16">
       <div className="mb-5 flex items-center justify-between">
-        <h2 className="text-xl font-bold tracking-tight sm:text-2xl">You may also like</h2>
+        <h2 className="text-xl font-bold tracking-tight sm:text-2xl">{title}</h2>
         <div className="hidden gap-2 sm:flex">
           <button
             type="button"

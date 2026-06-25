@@ -33,15 +33,20 @@ export async function generateMetadata({
 
   const { product } = detail;
   const image = product.images[0]?.url ?? product.variants[0]?.images[0]?.url;
-  const description = product.description.replace(/<[^>]+>/g, "").slice(0, 160) || product.title;
+  // AI-5: prefer the admin-reviewed SEO meta; fall back to title/description.
+  const title = product.seoTitle?.trim() || product.title;
+  const description =
+    product.seoDescription?.trim() ||
+    product.description.replace(/<[^>]+>/g, "").slice(0, 160) ||
+    product.title;
   const canonical = `/p/${product.slug}`;
   return {
-    title: product.title,
+    title,
     description,
     alternates: { canonical },
     openGraph: {
       type: "website",
-      title: product.title,
+      title,
       description,
       url: canonical,
       images: image ? [{ url: image }] : undefined,
@@ -61,7 +66,7 @@ export default async function ProductPage({
   const detail = await loadProduct(slug);
   if (!detail) notFound();
 
-  const { product, related, reviews, ratingBreakdown } = detail;
+  const { product, related, recommended, reviews, ratingBreakdown, reviewSummary } = detail;
   const { category } = product.subcategory;
 
   const session = await getSession();
@@ -147,11 +152,15 @@ export default async function ProductPage({
           specs={product.specs.map((s) => ({ id: s.id, key: s.key, value: s.value }))}
           reviews={reviews}
           breakdown={ratingBreakdown}
+          reviewSummary={reviewSummary}
           openReview={review === "1"}
         />
       </div>
 
-      <RelatedProducts products={related} />
+      {recommended.length > 0 && (
+        <RelatedProducts products={recommended} title="You may also like" />
+      )}
+      <RelatedProducts products={related} title="More in this category" />
       <RecentlyViewed excludeId={product.id} />
 
       <RecordRecentlyViewed

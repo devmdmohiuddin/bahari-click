@@ -18,4 +18,6 @@ export const RATE_LIMITS = {
   search: { limit: 120, windowSec: HOUR }, // per IP
   smsPerRecipient: { limit: 20, windowSec: HOUR }, // per phone
   contactSubmit: { limit: 5, windowSec: HOUR }, // per IP
+  aiGenerate: { limit: 60, windowSec: HOUR }, // per admin — caps AI cost/abuse (08-ai-features.md)
+  aiChat: { limit: 60, windowSec: HOUR }, // per IP — caps chatbot cost/abuse (AI-4)
 } satisfies Record<string, RateLimitPolicy>;

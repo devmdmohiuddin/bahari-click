@@ -1,6 +1,7 @@
 import { db } from "@/lib/db";
 import { cacheTags, revalidateTags } from "@/lib/cache";
 import { conflict, notFound, validationError } from "@/lib/errors";
+import { refreshProductEmbeddingSafe } from "@/server/services/ai";
 import { slugify, uniqueSlug } from "@/lib/slug";
 import {
   productCreateSchema,
@@ -89,6 +90,8 @@ export async function createProduct(input: ProductCreateInput) {
       description: data.description ?? "",
       basePrice: data.basePrice,
       compareAtPrice: data.compareAtPrice ?? null,
+      seoTitle: data.seoTitle ?? null,
+      seoDescription: data.seoDescription ?? null,
       isFeatured: data.isFeatured ?? false,
       soldCountBoost: data.soldCountBoost ?? 0,
       images: {
@@ -119,7 +122,7 @@ export async function updateProduct(input: ProductUpdateInput) {
 
   const existing = await db.product.findUnique({
     where: { id: data.id },
-    select: { id: true, slug: true },
+    select: { id: true, slug: true, isPublished: true },
   });
   if (!existing) throw notFound("Product not found");
 
@@ -146,6 +149,8 @@ export async function updateProduct(input: ProductUpdateInput) {
         description: data.description,
         basePrice: data.basePrice,
         compareAtPrice: data.compareAtPrice,
+        seoTitle: data.seoTitle,
+        seoDescription: data.seoDescription,
         isFeatured: data.isFeatured,
         soldCountBoost: data.soldCountBoost,
       },
@@ -193,6 +198,9 @@ export async function updateProduct(input: ProductUpdateInput) {
   });
 
   revalidateTags(cacheTags.products, cacheTags.product(existing.id), cacheTags.productSlug(slug));
+  // AI-3/AI-6: keep the embedding fresh for published products (title/desc/specs
+  // may have changed). Unpublished products aren't searchable, so skip them.
+  if (existing.isPublished) await refreshProductEmbeddingSafe(existing.id);
   return product;
 }
 
@@ -237,6 +245,8 @@ export async function setProductPublished(id: string, isPublished: boolean) {
 
   const updated = await db.product.update({ where: { id }, data: { isPublished } });
   revalidateTags(cacheTags.products, cacheTags.product(id), cacheTags.productSlug(product.slug));
+  // AI-3/AI-6: generate the embedding when a product becomes searchable.
+  if (isPublished) await refreshProductEmbeddingSafe(id);
   return updated;
 }
 

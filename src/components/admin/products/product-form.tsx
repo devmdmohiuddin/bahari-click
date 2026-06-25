@@ -31,11 +31,14 @@ import {
 import { toast } from "@/components/ui/toast";
 import { PageHeader } from "@/components/admin/page-header";
 import { ImageGallery, imageUid, type ImageItem } from "@/components/admin/products/image-gallery";
+import { ContentGenerator } from "@/components/admin/products/content-generator";
+import type { GeneratedProductContent } from "@/server/integrations/ai";
 import {
   createProductAction,
   setProductPublishedAction,
   updateProductAction,
 } from "@/server/actions/catalog";
+import { regenerateReviewSummaryAction } from "@/server/actions/ai";
 import type { AdminProductDetail } from "@/server/services/product";
 
 export type SubcategoryOption = { id: string; label: string; group: string };
@@ -122,6 +125,8 @@ export function ProductForm({
   const [soldBoost, setSoldBoost] = useState(product?.soldCountBoost?.toString() ?? "0");
   const [isPublished, setIsPublished] = useState(product?.isPublished ?? false);
   const [isFeatured, setIsFeatured] = useState(product?.isFeatured ?? false);
+  const [seoTitle, setSeoTitle] = useState(product?.seoTitle ?? "");
+  const [seoDescription, setSeoDescription] = useState(product?.seoDescription ?? "");
 
   const [variants, setVariants] = useState<VariantRow[]>(() => initVariants(product));
   const [specs, setSpecs] = useState<SpecRow[]>(() => initSpecs(product));
@@ -132,6 +137,7 @@ export function ProductForm({
   const [genColors, setGenColors] = useState("");
   const [genSizes, setGenSizes] = useState("");
   const [saving, setSaving] = useState(false);
+  const [summarizing, setSummarizing] = useState(false);
 
   // Group subcategory options by parent category for the select.
   const groups = subcategoryOptions.reduce<Record<string, SubcategoryOption[]>>((acc, o) => {
@@ -141,6 +147,44 @@ export function ProductForm({
 
   function setVariant(uidv: string, patch: Partial<VariantRow>) {
     setVariants((rows) => rows.map((r) => (r.uid === uidv ? { ...r, ...patch } : r)));
+  }
+
+  // Label for the selected subcategory, passed to the AI generator for context.
+  const selectedSub = subcategoryOptions.find((o) => o.id === subcategoryId);
+  const categoryLabel = selectedSub ? `${selectedSub.group} > ${selectedSub.label}` : undefined;
+
+  // AI-1: fill the form from generated copy. Title only fills if empty so an
+  // intentional title isn't clobbered; description and specs are replaced.
+  function applyGenerated(content: GeneratedProductContent) {
+    if (!title.trim()) setTitle(content.title);
+    setDescription(content.description);
+    if (content.specs.length > 0) {
+      setSpecs(content.specs.map((s) => ({ uid: uid(), key: s.key, value: s.value })));
+    }
+    // AI-5: fill SEO meta and any empty image alt text.
+    setSeoTitle(content.seo.title);
+    setSeoDescription(content.seo.description);
+    if (content.imageAlt) {
+      const fillAlt = (imgs: ImageItem[]) =>
+        imgs.map((img) => (img.alt.trim() ? img : { ...img, alt: content.imageAlt }));
+      setProductImages((imgs) => fillAlt(imgs));
+      setVariants((rows) => rows.map((r) => ({ ...r, images: fillAlt(r.images) })));
+    }
+  }
+
+  // AI-2: rebuild the cached review pros/cons summary on demand.
+  async function regenerateSummary() {
+    if (!product) return;
+    setSummarizing(true);
+    try {
+      const res = await regenerateReviewSummaryAction(product.id);
+      if (!res.ok) return toast.error("Could not summarize", res.error.message);
+      toast.success(
+        res.data.summary ? "Review summary updated" : "Not enough approved reviews yet",
+      );
+    } finally {
+      setSummarizing(false);
+    }
   }
 
   // Build the color × size matrix, preserving any already-entered cell data.
@@ -212,6 +256,8 @@ export function ProductForm({
       description,
       basePrice: Number(basePrice),
       compareAtPrice: compareAt.trim() === "" ? null : Number(compareAt),
+      seoTitle: seoTitle.trim() || null,
+      seoDescription: seoDescription.trim() || null,
       isFeatured,
       soldCountBoost: soldBoost.trim() === "" ? 0 : Number(soldBoost),
       variants: variantPayload,
@@ -325,7 +371,14 @@ export function ProductForm({
                 </div>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="description">Description</Label>
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="description">Description</Label>
+                  <ContentGenerator
+                    title={title}
+                    category={categoryLabel}
+                    onApply={applyGenerated}
+                  />
+                </div>
                 <Textarea
                   id="description"
                   value={description}
@@ -552,6 +605,40 @@ export function ProductForm({
               </Button>
             </CardContent>
           </Card>
+
+          {/* SEO — AI-5. Blank fields fall back to the title/description. */}
+          <Card>
+            <CardHeader>
+              <CardTitle>SEO</CardTitle>
+              <CardDescription>
+                Search-engine title and description. Use ✨ Generate to draft these; leave blank to
+                fall back to the product title and description.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="seoTitle">Meta title</Label>
+                <Input
+                  id="seoTitle"
+                  value={seoTitle}
+                  onChange={(e) => setSeoTitle(e.target.value)}
+                  maxLength={70}
+                  placeholder="Up to ~60 characters"
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="seoDescription">Meta description</Label>
+                <Textarea
+                  id="seoDescription"
+                  value={seoDescription}
+                  onChange={(e) => setSeoDescription(e.target.value)}
+                  maxLength={180}
+                  placeholder="Up to ~155 characters"
+                  className="min-h-20"
+                />
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
         {/* Sidebar */}
@@ -575,6 +662,26 @@ export function ProductForm({
                 </div>
                 <Switch id="featured" checked={isFeatured} onCheckedChange={setIsFeatured} />
               </div>
+              {isEdit && (
+                <div className="rounded-lg border p-3">
+                  <div className="mb-2 space-y-0.5">
+                    <p className="text-sm font-medium">AI review summary</p>
+                    <p className="text-muted-foreground text-xs">
+                      Rebuild the pros/cons summary shown on the product page.
+                    </p>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={regenerateSummary}
+                    disabled={summarizing}
+                  >
+                    {summarizing ? <Loader2 className="animate-spin" /> : <Sparkles />}
+                    Regenerate summary
+                  </Button>
+                </div>
+              )}
             </CardContent>
           </Card>
 
